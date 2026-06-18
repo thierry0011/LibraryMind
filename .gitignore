@@ -175,6 +175,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+#vector database
+chroma_data/
+
 # pytype static type analyzer
 .pytype/
 
