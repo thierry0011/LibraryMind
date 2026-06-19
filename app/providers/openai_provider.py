@@ -1,22 +1,18 @@
 from config import settings
-from base import BaseProvider
+from app.providers.base import BaseProvider
+
 
 class OpenAIProvider(BaseProvider):
-    def __init__(self, api_key: str, base_url: str):
-        super().__init__(api_key, base_url)
-        
+    @property
     def model(self) -> str:
         return settings.MODEL
-    
+
+    @property
     def provider(self) -> str:
         return "openai"
-    
-    def build_payload(self, prompt: str, system: str, temperature: float, max_tokens: int) -> dict:
-        return {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": prompt}
-            ],
-            "stream": False
-        }
+
+    def messages(self, prompt: str, system: str) -> list:
+        return [
+            {"role": "system", "content": system},
+            {"role": "user", "content": prompt},
+        ]
