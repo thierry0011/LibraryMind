@@ -20,8 +20,9 @@ from infrastructure.rate_limiter import RateLimiter
 
 def make_limiter(max_tokens: int = 5, start_time: float = 1000.0) -> RateLimiter:
     """Return a RateLimiter with a controlled clock and known max_tokens."""
-    with patch("infrastructure.rate_limiter.settings") as mock_settings, patch(
-        "infrastructure.rate_limiter.time.monotonic", return_value=start_time
+    with (
+        patch("infrastructure.rate_limiter.settings") as mock_settings,
+        patch("infrastructure.rate_limiter.time.monotonic", return_value=start_time),
     ):
         mock_settings.RATE_LIMIT_PER_MINUTE = max_tokens
         limiter = RateLimiter()
@@ -52,8 +53,9 @@ class TestRateLimiterInit:
 
     def test_max_tokens_cast_to_int(self) -> None:
         # settings value may be a string (env var raw value)
-        with patch("infrastructure.rate_limiter.settings") as ms, patch(
-            "infrastructure.rate_limiter.time.monotonic", return_value=0.0
+        with (
+            patch("infrastructure.rate_limiter.settings") as ms,
+            patch("infrastructure.rate_limiter.time.monotonic", return_value=0.0),
         ):
             ms.RATE_LIMIT_PER_MINUTE = "30"
             limiter = RateLimiter()
