@@ -1,6 +1,6 @@
 from app.infrastructure.cache import Cache
 from app.infrastructure.vector_store import VectorStore
-from app.infrastructure.usage_tracker import UsageTracker
+from app.infrastructure.usage_tracker import get_usage_tracker
 from app.infrastructure.rate_limiter import RateLimiter
 from app.services.embedding_service import EmbeddingsService
 from logging import getLogger
@@ -23,7 +23,7 @@ class RAGEngine:
     def __init__(self):
         self.vector_store = VectorStore()
         self.cache = Cache()
-        self.usage_tracker = UsageTracker()
+        self.usage_tracker = get_usage_tracker()
         self.rate_limiter = RateLimiter()
         self.provider = ResilientAIService()
         self.embedding_service = EmbeddingsService()
