@@ -2,31 +2,14 @@
 Tests for services.classification_service.ClassificationService.
 
 ResilientAIService is fully mocked — no live AI calls required.
-json_parse lives in app/services/ and is pre-loaded into sys.modules so the
-service's bare `from json_parse import Parser` resolves correctly.
 """
 
-import importlib.util
 import json
-import os
-import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Pre-load json_parse so `from json_parse import Parser` works inside the service.
-_json_parse_path = os.path.abspath(
-    os.path.join(
-        os.path.dirname(__file__), "..", "..", "app", "services", "json_parse.py"
-    )
-)
-if "json_parse" not in sys.modules:
-    _spec = importlib.util.spec_from_file_location("json_parse", _json_parse_path)
-    _mod = importlib.util.module_from_spec(_spec)
-    sys.modules["json_parse"] = _mod
-    _spec.loader.exec_module(_mod)
-
-from services.classification_service import ClassificationService, _SYSTEM_PROMPT  # noqa: E402
+from services.classification_service import ClassificationService, _SYSTEM_PROMPT
 
 
 # ---------------------------------------------------------------------------

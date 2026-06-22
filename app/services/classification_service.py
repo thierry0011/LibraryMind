@@ -1,5 +1,5 @@
 import json
-from json_parse import Parser
+from app.services.json_parse import Parser
 from app.providers.resilient_ai_service import ResilientAIService
 from logger import get_logger
 
