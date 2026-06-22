@@ -1,4 +1,7 @@
 import json
+
+from app.infrastructure.cache import Cache
+from app.infrastructure.rate_limiter import RateLimiter
 from app.services.json_parse import Parser
 from app.providers.resilient_ai_service import ResilientAIService
 from logger import get_logger
@@ -33,13 +36,26 @@ _SYSTEM_PROMPT = (
 class SummarizationService:
     def __init__(self):
         self.provider = ResilientAIService()
+        self.cache = Cache()
+        self.rate_limiter = RateLimiter()
 
     def summarize(self, reviews: list[str]):
-        # response = self.provider.generate(prompt=reviews, system=_SYSTEM_PROMPT)
         numbered = "\n".join([f"Review {i+1}: {r}" for i, r in enumerate(reviews)])
+
+        cache_key = self.cache.generate_key("summarise", numbered)
+        cached = self.cache.get(cache_key)
+        if cached is not None:
+            logger.info("Cache hit for summarisation.")
+            return cached
+
+        self.rate_limiter.acquire()
+
         response = self.provider.generate(prompt=numbered, system=_SYSTEM_PROMPT)
         try:
-            return Parser._parse_json(response)
+            result = Parser._parse_json(response)
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON: {e}\nRaw: {response}")
             raise ValueError(f"Invalid JSON: {e}\nRaw: {response}")
+
+        self.cache.set(cache_key, result)
+        return result

@@ -20,7 +20,9 @@ class SummariseResponse(BaseModel):
     recommendation: str
 
 
-@router.post("/", response_model=SummariseResponse, summary="Summarise book reviews")
+@router.post(
+    "/reviews", response_model=SummariseResponse, summary="Summarise book reviews"
+)
 def summarise(body: SummariseRequest):
     """
     Summarise a collection of book reviews.

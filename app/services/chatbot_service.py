@@ -1,3 +1,4 @@
+from app.infrastructure.rate_limiter import RateLimiter
 from app.services.rag_engine import RAGEngine
 from app.providers.resilient_ai_service import ResilientAIService
 from config import settings
@@ -14,6 +15,7 @@ class ChatbotService:
     def __init__(self):
         self.rag_engine = RAGEngine()
         self.provider = ResilientAIService()
+        self.rate_limiter = RateLimiter()
         self.conversation = {}
         self.max_history = settings.MAX_CONVERSATION_HISTORY
 
@@ -49,6 +51,7 @@ class ChatbotService:
                 User: {message}"""
 
         # generate response with full context
+        self.rate_limiter.acquire()
         reply = self.provider.generate(prompt=prompt, system=_SYSTEM_PROMPT)
 
         # Append model response to conversation history

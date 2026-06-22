@@ -19,7 +19,9 @@ class ClassifyResponse(BaseModel):
     summary: str
 
 
-@router.post("/", response_model=ClassifyResponse, summary="Classify support ticket")
+@router.post(
+    "/ticket", response_model=ClassifyResponse, summary="Classify support ticket"
+)
 def classify(body: ClassifyRequest):
     """
     Classify a library support ticket by category, priority, and sentiment,
