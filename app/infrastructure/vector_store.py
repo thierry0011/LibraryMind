@@ -6,7 +6,11 @@ class VectorStore:
         self.client = chromadb.PersistentClient(path="./books_chroma_db")
         self.collection = self.client.get_or_create_collection(
             name="books",
-            metadata={"hnsw:space": "cosine", "hnsw:ef_construction": 200, "hnsw:M": 16},
+            metadata={
+                "hnsw:space": "cosine",
+                "hnsw:ef_construction": 200,
+                "hnsw:M": 16,
+            },
         )
 
     def upsert_books(self, id: str, embedding: list, metadata: dict, document: str):
