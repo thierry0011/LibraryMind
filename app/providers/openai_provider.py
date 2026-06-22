@@ -1,5 +1,5 @@
 from config import settings
-from app.providers.base import BaseProvider
+from .base import BaseProvider
 
 
 class OpenAIProvider(BaseProvider):
