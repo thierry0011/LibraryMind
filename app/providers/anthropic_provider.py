@@ -1,4 +1,4 @@
-from app.providers.base import BaseProvider
+from .base import BaseProvider
 from config import settings
 # import httpx
 

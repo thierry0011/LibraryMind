@@ -1,6 +1,6 @@
 from config import settings
-from app.providers.openai_provider import OpenAIProvider
-from app.providers.anthropic_provider import AnthropicProvider
+from .openai_provider import OpenAIProvider
+from .anthropic_provider import AnthropicProvider
 from logger import get_logger
 
 logger = get_logger(__name__)
