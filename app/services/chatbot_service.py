@@ -43,7 +43,7 @@ class ChatbotService:
             ]
         )
         prompt = f"""Relevant books from our catalogue:
-                {rag_result['answer']}
+                {rag_result["answer"]}
 
                 Conversation so far:
                 {history_text}

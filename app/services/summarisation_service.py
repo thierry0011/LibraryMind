@@ -40,7 +40,7 @@ class SummarizationService:
         self.rate_limiter = RateLimiter()
 
     def summarize(self, reviews: list[str]):
-        numbered = "\n".join([f"Review {i+1}: {r}" for i, r in enumerate(reviews)])
+        numbered = "\n".join([f"Review {i + 1}: {r}" for i, r in enumerate(reviews)])
 
         cache_key = self.cache.generate_key("summarise", numbered)
         cached = self.cache.get(cache_key)
