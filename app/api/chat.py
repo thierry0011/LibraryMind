@@ -47,7 +47,11 @@ def chat(body: ChatRequest):
     )
 
 
-@router.get("/{conversation_id}/history", response_model=HistoryResponse, summary="Get conversation history")
+@router.get(
+    "/{conversation_id}/history",
+    response_model=HistoryResponse,
+    summary="Get conversation history",
+)
 def get_history(conversation_id: str):
     """
     Retrieve the full message history for a conversation.
@@ -57,7 +61,9 @@ def get_history(conversation_id: str):
     return HistoryResponse(conversation_id=conversation_id, history=history)
 
 
-@router.delete("/{conversation_id}", status_code=204, summary="Clear conversation history")
+@router.delete(
+    "/{conversation_id}", status_code=204, summary="Clear conversation history"
+)
 def clear_conversation(conversation_id: str):
     """
     Delete a conversation's history from memory.
