@@ -6,7 +6,6 @@ Default BASE_URL: http://localhost:8000
 """
 
 import sys
-import json
 import time
 import httpx
 
@@ -62,10 +61,19 @@ check("Response has 'results' list", isinstance(data.get("results"), list))
 check("At least one result returned", len(data.get("results", [])) > 0)
 if data.get("results"):
     first = data["results"][0]
-    check("Result has title, author, similarity", all(k in first for k in ("title", "author", "similarity")))
+    check(
+        "Result has title, author, similarity",
+        all(k in first for k in ("title", "author", "similarity")),
+    )
     genres = [b.get("genre", "") for b in data["results"]]
-    has_scifi = any("fiction" in (g or "").lower() or "sci" in (g or "").lower() for g in genres)
-    check("Sci-Fi books appear for desert planet query", has_scifi, f"genres returned: {genres}")
+    has_scifi = any(
+        "fiction" in (g or "").lower() or "sci" in (g or "").lower() for g in genres
+    )
+    check(
+        "Sci-Fi books appear for desert planet query",
+        has_scifi,
+        f"genres returned: {genres}",
+    )
 
 # ---------------------------------------------------------------------------
 # 3. Ask: off-topic → polite refusal
@@ -80,8 +88,18 @@ check("Response has 'cached' flag", "cached" in data)
 answer_lower = data.get("answer", "").lower()
 check(
     "Off-topic question returns polite refusal (no hallucination)",
-    any(w in answer_lower for w in ("not found", "catalogue", "catalog", "couldn't find", "cannot find", "don't have")),
-    f"answer: {data.get('answer', '')[:100]}"
+    any(
+        w in answer_lower
+        for w in (
+            "not found",
+            "catalogue",
+            "catalog",
+            "couldn't find",
+            "cannot find",
+            "don't have",
+        )
+    ),
+    f"answer: {data.get('answer', '')[:100]}",
 )
 
 # Ask a relevant question
@@ -96,11 +114,17 @@ post("/search/ask", {"question": "What science fiction books do you have about s
 r1_elapsed = time.time() - r1_time
 
 r2_time = time.time()
-r2 = post("/search/ask", {"question": "What science fiction books do you have about space?"})
+r2 = post(
+    "/search/ask", {"question": "What science fiction books do you have about space?"}
+)
 r2_elapsed = time.time() - r2_time
 
 check("Second identical ask returns cached=True", r2.json().get("cached") is True)
-check("Second call is faster than first (cache hit)", r2_elapsed < r1_elapsed, f"{r1_elapsed:.2f}s → {r2_elapsed:.2f}s")
+check(
+    "Second call is faster than first (cache hit)",
+    r2_elapsed < r1_elapsed,
+    f"{r1_elapsed:.2f}s → {r2_elapsed:.2f}s",
+)
 
 # ---------------------------------------------------------------------------
 # 4. Chat — multi-turn memory
@@ -108,16 +132,22 @@ check("Second call is faster than first (cache hit)", r2_elapsed < r1_elapsed, f
 print("\n── Chat /chat/ ─────────────────────────────────────────────")
 conv_id = "smoke-test-conv-001"
 
-r = post("/chat/", {"conversation_id": conv_id, "message": "Recommend a thriller novel"})
+r = post(
+    "/chat/", {"conversation_id": conv_id, "message": "Recommend a thriller novel"}
+)
 check("POST /chat/ turn 1 returns 200", r.status_code == 200)
 data = r.json()
 check("Chat reply is non-empty", bool(data.get("reply", "").strip()))
 check("Chat response has conversation_id", data.get("conversation_id") == conv_id)
 
-r = post("/chat/", {"conversation_id": conv_id, "message": "Tell me more about that one"})
+r = post(
+    "/chat/", {"conversation_id": conv_id, "message": "Tell me more about that one"}
+)
 check("POST /chat/ turn 2 returns 200", r.status_code == 200)
 data = r.json()
-check("Follow-up reply is non-empty (memory works)", bool(data.get("reply", "").strip()))
+check(
+    "Follow-up reply is non-empty (memory works)", bool(data.get("reply", "").strip())
+)
 
 r = get(f"/chat/{conv_id}/history")
 check("GET /chat/{id}/history returns 200", r.status_code == 200)
@@ -127,7 +157,10 @@ check("History has 4 messages after 2 turns", len(history) == 4, f"got {len(hist
 r2 = post("/chat/", {"conversation_id": "smoke-test-conv-002", "message": "Hello"})
 check("Different conversation_id starts fresh", r2.status_code == 200)
 r_hist2 = get("/chat/smoke-test-conv-002/history")
-check("Separate conversation has independent history", len(r_hist2.json().get("history", [])) == 2)
+check(
+    "Separate conversation has independent history",
+    len(r_hist2.json().get("history", [])) == 2,
+)
 
 r_del = client.delete(f"/chat/{conv_id}")
 check("DELETE /chat/{id} returns 204", r_del.status_code == 204)
@@ -138,16 +171,44 @@ check("History empty after delete", len(r_cleared.json().get("history", [])) == 
 # 5. Classify
 # ---------------------------------------------------------------------------
 print("\n── Classification /classify/ticket ─────────────────────────")
-r = post("/classify/ticket", {"ticket": "My library card isn't working at the self-checkout and I'm very frustrated!"})
+r = post(
+    "/classify/ticket",
+    {
+        "ticket": "My library card isn't working at the self-checkout and I'm very frustrated!"
+    },
+)
 check("POST /classify/ticket returns 200", r.status_code == 200)
 data = r.json()
-check("All five fields present", all(k in data for k in ("category", "priority", "sentiment", "department", "summary")))
-check("category=technical", data.get("category") == "technical", f"got {data.get('category')}")
-check("priority=high or urgent", data.get("priority") in ("high", "urgent"), f"got {data.get('priority')}")
-check("sentiment=negative", data.get("sentiment") == "negative", f"got {data.get('sentiment')}")
+check(
+    "All five fields present",
+    all(
+        k in data
+        for k in ("category", "priority", "sentiment", "department", "summary")
+    ),
+)
+check(
+    "category=technical",
+    data.get("category") == "technical",
+    f"got {data.get('category')}",
+)
+check(
+    "priority=high or urgent",
+    data.get("priority") in ("high", "urgent"),
+    f"got {data.get('priority')}",
+)
+check(
+    "sentiment=negative",
+    data.get("sentiment") == "negative",
+    f"got {data.get('sentiment')}",
+)
 
-r = post("/classify/ticket", {"ticket": "I love the new reading room, thank you so much!"})
-check("Positive ticket returns sentiment=positive", r.json().get("sentiment") == "positive")
+r = post(
+    "/classify/ticket", {"ticket": "I love the new reading room, thank you so much!"}
+)
+check(
+    "Positive ticket returns sentiment=positive",
+    r.json().get("sentiment") == "positive",
+)
 
 # ---------------------------------------------------------------------------
 # 6. Summarise
@@ -163,23 +224,52 @@ reviews = [
 r = post("/summarise/reviews", {"reviews": reviews})
 check("POST /summarise/reviews returns 200", r.status_code == 200)
 data = r.json()
-check("All six fields present", all(k in data for k in ("overall_sentiment", "average_rating", "key_themes", "praise", "criticism", "recommendation")))
-check("average_rating is between 1 and 5", 1.0 <= data.get("average_rating", 0) <= 5.0, f"got {data.get('average_rating')}")
-check("key_themes is non-empty list", isinstance(data.get("key_themes"), list) and len(data["key_themes"]) > 0)
-check("praise is non-empty list", isinstance(data.get("praise"), list) and len(data["praise"]) > 0)
-check("criticism is non-empty list", isinstance(data.get("criticism"), list) and len(data["criticism"]) > 0)
+check(
+    "All six fields present",
+    all(
+        k in data
+        for k in (
+            "overall_sentiment",
+            "average_rating",
+            "key_themes",
+            "praise",
+            "criticism",
+            "recommendation",
+        )
+    ),
+)
+check(
+    "average_rating is between 1 and 5",
+    1.0 <= data.get("average_rating", 0) <= 5.0,
+    f"got {data.get('average_rating')}",
+)
+check(
+    "key_themes is non-empty list",
+    isinstance(data.get("key_themes"), list) and len(data["key_themes"]) > 0,
+)
+check(
+    "praise is non-empty list",
+    isinstance(data.get("praise"), list) and len(data["praise"]) > 0,
+)
+check(
+    "criticism is non-empty list",
+    isinstance(data.get("criticism"), list) and len(data["criticism"]) > 0,
+)
 
 # ---------------------------------------------------------------------------
 # 7. Books ingest
 # ---------------------------------------------------------------------------
 print("\n── Knowledge Base /books/ ──────────────────────────────────")
-r = post("/books/", {
-    "title": "Smoke Test Book",
-    "author": "Test Author",
-    "year": "2024",
-    "genre": "Test",
-    "description": "A test book created by the smoke test script to verify the ingest endpoint works correctly.",
-})
+r = post(
+    "/books/",
+    {
+        "title": "Smoke Test Book",
+        "author": "Test Author",
+        "year": "2024",
+        "genre": "Test",
+        "description": "A test book created by the smoke test script to verify the ingest endpoint works correctly.",
+    },
+)
 check("POST /books/ returns 201", r.status_code == 201, f"got {r.status_code}")
 check("Response has 'id'", "id" in r.json())
 
