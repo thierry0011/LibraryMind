@@ -24,6 +24,7 @@ class settings:
 
     RELEVANCE_THRESHOLD = float(os.getenv("RELEVANCE_THRESHOLD", 0.7))
     RAG_TOP_K = int(os.getenv("RAG_TOP_K", 5))
+    MAX_CONVERSATION_HISTORY = int(os.getenv("MAX_CONVERSATION_HISTORY", 10))
 
     RATE_LIMIT_PER_MINUTE = os.getenv("RATE_LIMIT_PER_MINUTE", 60)
 

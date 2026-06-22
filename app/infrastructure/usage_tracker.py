@@ -3,6 +3,15 @@ from logger import get_logger
 
 logger = get_logger(__name__)
 
+_instance: "UsageTracker | None" = None
+
+
+def get_usage_tracker() -> "UsageTracker":
+    global _instance
+    if _instance is None:
+        _instance = UsageTracker()
+    return _instance
+
 
 class UsageTracker:
     def __init__(self):

@@ -42,7 +42,7 @@ def rag():
     with (
         patch("services.rag_engine.VectorStore"),
         patch("services.rag_engine.Cache"),
-        patch("services.rag_engine.UsageTracker"),
+        patch("services.rag_engine.get_usage_tracker"),
         patch("services.rag_engine.RateLimiter"),
         patch("services.rag_engine.ResilientAIService"),
         patch(
