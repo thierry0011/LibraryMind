@@ -1,4 +1,4 @@
-from app.infrastructure.rate_limiter import RateLimiter
+from app.infrastructure.rate_limiter import get_rate_limiter
 from app.services.rag_engine import RAGEngine
 from app.providers.resilient_ai_service import ResilientAIService
 from config import settings
@@ -15,7 +15,7 @@ class ChatbotService:
     def __init__(self):
         self.rag_engine = RAGEngine()
         self.provider = ResilientAIService()
-        self.rate_limiter = RateLimiter()
+        self.rate_limiter = get_rate_limiter()
         self.conversation = {}
         self.max_history = settings.MAX_CONVERSATION_HISTORY
 

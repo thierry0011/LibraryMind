@@ -35,7 +35,7 @@ class EmbeddingsService:
             if cached_embedding is not None:
                 logger.info("Returning cached embedding.")
                 return cached_embedding
-        payload = {"model": self.model, "input": text}
+        payload = {"model": self.model, "input": text, "dimensions": settings.EMBEDDING_DIMENSIONS}
 
         headers = {
             "Provider": self.provider,
@@ -71,6 +71,7 @@ class EmbeddingsService:
         payload = {
             "model": self.model,
             "input": [text for _, text in texts_to_fetch],
+            "dimensions": settings.EMBEDDING_DIMENSIONS,
         }
         headers = {
             "Provider": self.provider,

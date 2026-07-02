@@ -1,7 +1,7 @@
 import json
 
 from app.infrastructure.cache import Cache
-from app.infrastructure.rate_limiter import RateLimiter
+from app.infrastructure.rate_limiter import get_rate_limiter
 from app.services.json_parse import Parser
 from app.providers.resilient_ai_service import ResilientAIService
 from logger import get_logger
@@ -37,7 +37,7 @@ class SummarizationService:
     def __init__(self):
         self.provider = ResilientAIService()
         self.cache = Cache()
-        self.rate_limiter = RateLimiter()
+        self.rate_limiter = get_rate_limiter()
 
     def summarize(self, reviews: list[str]):
         numbered = "\n".join([f"Review {i + 1}: {r}" for i, r in enumerate(reviews)])
@@ -50,7 +50,7 @@ class SummarizationService:
 
         self.rate_limiter.acquire()
 
-        response = self.provider.generate(prompt=numbered, system=_SYSTEM_PROMPT)
+        response = self.provider.generate(prompt=numbered, system=_SYSTEM_PROMPT, temperature=0.1)
         try:
             result = Parser._parse_json(response)
         except json.JSONDecodeError as e:

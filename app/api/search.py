@@ -11,11 +11,6 @@ _vector_store = VectorStore()
 _rag_engine = RAGEngine()
 
 
-# ---------------------------------------------------------------------------
-# POST /search/books
-# ---------------------------------------------------------------------------
-
-
 class SearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=500)
     top_k: int = Field(default=5, ge=1, le=20)
@@ -64,11 +59,6 @@ def search_books(body: SearchRequest):
         for b in candidates
     ]
     return SearchResponse(results=results, total=len(results))
-
-
-# ---------------------------------------------------------------------------
-# POST /search/ask
-# ---------------------------------------------------------------------------
 
 
 class AskRequest(BaseModel):

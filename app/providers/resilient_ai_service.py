@@ -14,10 +14,10 @@ class ResilientAIService:
         else:
             self.providers = [AnthropicProvider(), OpenAIProvider()]
 
-    def generate(self, prompt: str, system: str) -> str:
+    def generate(self, prompt: str, system: str, temperature: float | None = None) -> str:
         for provider in self.providers:
             try:
-                return provider.generate(prompt, system)
+                return provider.generate(prompt, system, temperature=temperature)
             except Exception as e:
                 logger.error(f"Error with {provider.provider}: {e}")
         raise RuntimeError("All providers failed to generate a response.")

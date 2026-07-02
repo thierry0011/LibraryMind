@@ -1,17 +1,28 @@
 import chromadb
+from pathlib import Path
+
+_DB_PATH = str(Path(__file__).parent.parent.parent / "books_chroma_db")
 
 
 class VectorStore:
     def __init__(self):
-        self.client = chromadb.PersistentClient(path="./books_chroma_db")
-        self.collection = self.client.get_or_create_collection(
-            name="books",
-            metadata={
-                "hnsw:space": "cosine",
-                "hnsw:ef_construction": 200,
-                "hnsw:M": 16,
-            },
-        )
+        self.client = chromadb.PersistentClient(path=_DB_PATH)
+        try:
+            self.collection = self.client.get_or_create_collection(
+                name="books",
+                metadata={
+                    "hnsw:space": "cosine",
+                    "hnsw:ef_construction": 200,
+                    "hnsw:M": 16,
+                },
+            )
+        except Exception:
+            # ChromaDB >=1.x Rust backend does not accept hnsw params in metadata;
+            # fall back to cosine-only so the server starts regardless of version.
+            self.collection = self.client.get_or_create_collection(
+                name="books",
+                metadata={"hnsw:space": "cosine"},
+            )
 
     def upsert_books(self, id: str, embedding: list, metadata: dict, document: str):
         """
