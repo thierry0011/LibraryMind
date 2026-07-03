@@ -69,7 +69,7 @@ class SummarizationService:
             result = Parser._parse_json(response)
         except json.JSONDecodeError as e:
             raw_display = repr(response) if not response else response[:500]
-            logger.error("Invalid JSON from AI. Error: %s | Raw: %s", e, raw_display)
+            logger.error("Invalid JSON from AI", error=str(e), raw=raw_display)
             raise InvalidAIResponseException(
                 f"Invalid JSON: {e}\nRaw: {response}"
             ) from e

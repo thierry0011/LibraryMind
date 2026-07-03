@@ -24,5 +24,7 @@ class ResilientAIService:
                     return provider.generate(prompt, system, temperature=temperature)
                 return provider.generate(prompt, system)
             except Exception as e:
-                logger.error(f"Error with {provider.provider}: {e}")
+                logger.error(
+                    "Provider failed", provider=provider.provider, error=str(e)
+                )
         raise AIProviderException("All providers failed to generate a response.")

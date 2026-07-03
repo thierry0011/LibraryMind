@@ -52,8 +52,11 @@ class UsageTracker:
             }
         )
         logger.info(
-            f"Model: {model}, Prompt Tokens: {prompt_tokens}, Completion Tokens: {completion_tokens}, Total Tokens: {total_tokens}",
-            extra={"timestamp": timestamp},
+            "Token usage tracked",
+            model=model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
         )
 
     def get_daily_cost(self):

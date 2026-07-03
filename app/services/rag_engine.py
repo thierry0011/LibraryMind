@@ -3,12 +3,12 @@ from app.infrastructure.vector_store import VectorStore
 from app.infrastructure.usage_tracker import get_usage_tracker
 from app.infrastructure.rate_limiter import get_rate_limiter
 from app.services.embedding_service import EmbeddingsService
-from logging import getLogger
 from app.providers.resilient_ai_service import ResilientAIService
 from config import settings
+from logger import get_logger
 import tiktoken
 
-logger = getLogger(__name__)
+logger = get_logger(__name__)
 
 _SYSTEM_PROMPT = (
     "You are LibraryMind, a knowledgeable and friendly library assistant. "
@@ -118,9 +118,9 @@ class RAGEngine:
         )
         self.usage_tracker.track(model, prompt_tokens, completion_tokens)
         logger.info(
-            "Generated RAG answer. Prompt tokens: %d, completion tokens: %d",
-            prompt_tokens,
-            completion_tokens,
+            "Generated RAG answer",
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
         )
 
         # 10. Cache the result for future identical queries

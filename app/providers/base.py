@@ -14,6 +14,11 @@ from app.exceptions import InvalidAIResponseException
 
 logger = get_logger(__name__)
 
+# tenacity's before_sleep_log calls logger.log(level, ...) which is a stdlib-only
+# method — structlog's BoundLogger doesn't have it. Use a stdlib logger here so
+# retry sleep events still flow through the structlog ProcessorFormatter on the root.
+_tenacity_logger = logging.getLogger(__name__)
+
 
 def _is_retryable(exc: BaseException) -> bool:
     """Only retry transient errors — rate limits, server faults, and network blips.
@@ -58,7 +63,7 @@ class BaseProvider(ABC):
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
         retry=retry_if_exception(_is_retryable),
-        before_sleep=before_sleep_log(logger, logging.WARNING),
+        before_sleep=before_sleep_log(_tenacity_logger, logging.WARNING),
         reraise=True,
     )
     def generate(
@@ -110,25 +115,30 @@ class BaseProvider(ABC):
 
         except httpx.HTTPStatusError as exc:
             logger.warning(
-                "HTTP %s from %s provider: %s",
-                exc.response.status_code,
-                self.provider,
-                exc.response.text[:200],
+                "HTTP error from AI provider",
+                provider=self.provider,
+                status=exc.response.status_code,
+                body=exc.response.text[:200],
             )
             raise
 
         except httpx.RequestError as exc:
-            logger.warning("Network error from %s provider: %s", self.provider, exc)
+            logger.warning(
+                "Network error from AI provider",
+                provider=self.provider,
+                error=str(exc),
+            )
             raise
 
         except InvalidAIResponseException:
-            # Already typed correctly — log and let it propagate without wrapping
-            logger.error("Malformed response from %s provider", self.provider)
+            logger.error("Malformed response from AI provider", provider=self.provider)
             raise
 
         except (KeyError, IndexError, ValueError) as exc:
             logger.error(
-                "Failed to parse response from %s provider: %s", self.provider, exc
+                "Failed to parse AI provider response",
+                provider=self.provider,
+                error=str(exc),
             )
             raise InvalidAIResponseException(
                 f"Unexpected response format from {self.provider}: {exc}"

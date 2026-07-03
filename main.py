@@ -1,6 +1,9 @@
+import uuid
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from structlog.contextvars import bind_contextvars, clear_contextvars
 
 from app.api.books import router as books_router
 from app.api.chat import router as chat_router
@@ -78,14 +81,24 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def request_context_middleware(request: Request, call_next):
+    """Bind a unique request_id to every log line emitted during this request."""
+    clear_contextvars()
+    bind_contextvars(
+        request_id=str(uuid.uuid4())[:8],
+        method=request.method,
+        path=request.url.path,
+    )
+    return await call_next(request)
+
+
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.error(
-        "Unhandled exception on %s %s: %s: %s",
-        request.method,
-        request.url.path,
-        type(exc).__name__,
-        exc,
+        "Unhandled exception",
+        exc_type=type(exc).__name__,
+        exc_msg=str(exc),
         exc_info=True,
     )
     return JSONResponse(
