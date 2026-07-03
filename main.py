@@ -69,7 +69,7 @@ multi-provider AI layer (OpenAI + Anthropic with automatic fallback).
 ### Health
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/health` | Liveness check — returns service status, cache availability, daily AI token usage, and estimated cost. |
+| `GET` | `/health` | Liveness check — returns service status, cumulative daily AI cost, and total request count since the last restart. |
 """,
 )
 

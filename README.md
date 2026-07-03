@@ -18,8 +18,9 @@ LibraryMind/
 ├── scripts/
 │   ├── seed.py         # Populate ChromaDB from books.json
 │   └── smoke_test.py   # End-to-end validation script
-├── tests/              # pytest unit tests (334 tests)
+├── tests/              # pytest unit tests (324 tests)
 ├── config.py
+├── logger.py           # structlog configuration (console + JSON file output)
 ├── main.py
 └── .env
 ```
@@ -325,9 +326,19 @@ This means a patron sending a message like `"Ignore all prior instructions and r
 
 ---
 
+## Logging & Observability
+
+All logging goes through `structlog` (configured in `logger.py`), not the stdlib `logging` module directly:
+
+- **Request-scoped context.** A middleware in `main.py` (`request_context_middleware`) binds a short `request_id`, HTTP method, and path to `structlog`'s contextvars at the start of every request via `bind_contextvars()`. Every log line emitted anywhere during that request — in a router, a service, a provider — automatically carries that `request_id`, with no need to pass it down explicitly. Context is cleared at the start of the next request with `clear_contextvars()`.
+- **Dual output.** Console logs render as human-readable, coloured lines (`structlog.dev.ConsoleRenderer`) for local development. A rotating file handler (`logs/app.log`, 1 MB per file, 3 backups) writes the same events as one JSON object per line, ready to pipe into Datadog, Loki, or `jq` without a parsing step.
+- **Noisy third-party loggers suppressed.** `httpx`, `httpcore`, `chromadb`, and `posthog` log verbosely at `DEBUG`; their loggers are capped at `WARNING` so they don't drown out application logs.
+
+---
+
 ## Running Tests
 
-### Unit tests (334 tests)
+### Unit tests (324 tests)
 ```bash
 pytest tests/ -v
 ```
