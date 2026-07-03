@@ -10,12 +10,18 @@ from tenacity import (
 )
 from config import settings
 from logger import get_logger
+from app.exceptions import InvalidAIResponseException
 
 logger = get_logger(__name__)
 
 
 def _is_retryable(exc: BaseException) -> bool:
-    """Only retry transient errors — rate limits, server faults, and network blips."""
+    """Only retry transient errors — rate limits, server faults, and network blips.
+
+    httpx exceptions are checked directly so that our custom exception types
+    (which are not httpx exceptions) are never retried — they represent
+    permanent failures like malformed responses.
+    """
     if isinstance(exc, httpx.HTTPStatusError):
         return exc.response.status_code == 429 or exc.response.status_code >= 500
     return isinstance(exc, (httpx.TimeoutException, httpx.ConnectError))
@@ -55,7 +61,9 @@ class BaseProvider(ABC):
         before_sleep=before_sleep_log(logger, logging.WARNING),
         reraise=True,
     )
-    def generate(self, prompt: str, system: str, temperature: float | None = None) -> str:
+    def generate(
+        self, prompt: str, system: str, temperature: float | None = None
+    ) -> str:
         headers = {
             "Provider": self.provider,
             "X-Api-Key": self.api_key,
@@ -82,20 +90,23 @@ class BaseProvider(ABC):
             data = response.json()
 
             if self.provider == "openai":
-                # OpenAI path
                 choices = data.get("choices", [])
                 if not choices:
-                    raise ValueError("...")
+                    raise InvalidAIResponseException(
+                        f"OpenAI response contained no choices: {data}"
+                    )
                 return data["choices"][0]["message"]["content"]
 
             elif self.provider == "anthropic":
                 content = data.get("content", [])
                 if not content:
-                    raise ValueError("...")
+                    raise InvalidAIResponseException(
+                        f"Anthropic response contained no content blocks: {data}"
+                    )
                 return content[0]["text"]
 
             else:
-                raise ValueError(f"Unknown provider: {self.provider}")
+                raise InvalidAIResponseException(f"Unknown provider: {self.provider}")
 
         except httpx.HTTPStatusError as exc:
             logger.warning(
@@ -110,9 +121,18 @@ class BaseProvider(ABC):
             logger.warning("Network error from %s provider: %s", self.provider, exc)
             raise
 
-        except (KeyError, IndexError, ValueError) as exc:
-            logger.error("Failed to parse response from %s provider: %s", self.provider, exc)
+        except InvalidAIResponseException:
+            # Already typed correctly — log and let it propagate without wrapping
+            logger.error("Malformed response from %s provider", self.provider)
             raise
+
+        except (KeyError, IndexError, ValueError) as exc:
+            logger.error(
+                "Failed to parse response from %s provider: %s", self.provider, exc
+            )
+            raise InvalidAIResponseException(
+                f"Unexpected response format from {self.provider}: {exc}"
+            ) from exc
 
     def close(self):
         # Closes the internal HTTPX network connection pool

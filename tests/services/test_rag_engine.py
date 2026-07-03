@@ -43,7 +43,7 @@ def rag():
         patch("services.rag_engine.VectorStore"),
         patch("services.rag_engine.Cache"),
         patch("services.rag_engine.get_usage_tracker"),
-        patch("services.rag_engine.RateLimiter"),
+        patch("services.rag_engine.get_rate_limiter"),
         patch("services.rag_engine.ResilientAIService"),
         patch(
             "services.rag_engine.EmbeddingsService"

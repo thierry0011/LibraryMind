@@ -5,6 +5,11 @@ from pydantic import BaseModel, Field
 
 from app.services.embedding_service import EmbeddingsService
 from app.infrastructure.vector_store import VectorStore
+from app.exceptions import (
+    EmbeddingException,
+    VectorStoreException,
+    RateLimitExceededException,
+)
 
 router = APIRouter()
 _embedding_service = EmbeddingsService()
@@ -51,10 +56,9 @@ def ingest_book(body: BookIngestRequest):
             metadata=metadata,
             document=body.description,
         )
-    except Exception as e:
-        msg = str(e)
-        if "rate limit" in msg.lower():
-            raise HTTPException(status_code=429, detail=msg)
-        raise HTTPException(status_code=503, detail=f"Ingest error: {msg}")
+    except RateLimitExceededException as e:
+        raise HTTPException(status_code=429, detail=str(e))
+    except (EmbeddingException, VectorStoreException) as e:
+        raise HTTPException(status_code=503, detail=f"Ingest error: {e}")
 
     return BookIngestResponse(id=book_id, message="Book ingested successfully.")

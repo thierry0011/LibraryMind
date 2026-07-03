@@ -120,7 +120,7 @@ class TestClassifyProviderCall:
         svc.provider.generate.return_value = _json_response()
         svc.classify("UNIQUE_TICKET_CONTENT")
         prompt = svc.provider.generate.call_args.kwargs["prompt"]
-        assert prompt == "UNIQUE_TICKET_CONTENT"
+        assert prompt == "<ticket>UNIQUE_TICKET_CONTENT</ticket>"
 
     def test_different_tickets_pass_different_prompts(self, svc):
         svc.provider.generate.return_value = _json_response()

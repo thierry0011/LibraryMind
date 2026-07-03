@@ -2,6 +2,7 @@ import threading
 import time
 
 from config import settings
+from app.exceptions import RateLimitExceededException
 
 
 class RateLimiter:
@@ -25,7 +26,14 @@ class RateLimiter:
             if self.tokens > 0:
                 self.tokens -= 1
                 return True
-            raise Exception("Rate limit exceeded. Please try again later.")
+            raise RateLimitExceededException(
+                "Rate limit exceeded. Please try again later."
+            )
+
+    def release(self):
+        """Return one token to the bucket. Call only to compensate for a failed AI request."""
+        with self.lock:
+            self.tokens = min(self.max_tokens, self.tokens + 1)
 
 
 _instance: RateLimiter | None = None
