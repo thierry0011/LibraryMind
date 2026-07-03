@@ -40,7 +40,7 @@ class ClassificationService:
         self.rate_limiter = get_rate_limiter()
 
     def classify(self, ticket: str) -> dict:
-        logger.info(f"Classifying ticket: {ticket}")
+        logger.info("Classifying ticket", ticket=ticket[:200])
 
         cache_key = self.cache.generate_key("classify", ticket)
         cached = self.cache.get(cache_key)

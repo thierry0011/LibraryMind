@@ -295,8 +295,8 @@ class TestTrackLogging:
         tracker = UsageTracker()
         with patch("infrastructure.usage_tracker.logger") as mock_logger:
             tracker.track("claude-2", 100, 50)
-        call_args = mock_logger.info.call_args[0][0]
-        assert "claude-2" in call_args
+        kwargs = mock_logger.info.call_args[1]
+        assert kwargs["model"] == "claude-2"
         p.stop()
 
     def test_logger_message_contains_token_counts(self) -> None:
@@ -304,9 +304,9 @@ class TestTrackLogging:
         tracker = UsageTracker()
         with patch("infrastructure.usage_tracker.logger") as mock_logger:
             tracker.track("gpt-3.5-turbo", 111, 222)
-        call_args = mock_logger.info.call_args[0][0]
-        assert "111" in call_args
-        assert "222" in call_args
+        kwargs = mock_logger.info.call_args[1]
+        assert kwargs["prompt_tokens"] == 111
+        assert kwargs["completion_tokens"] == 222
         p.stop()
 
     def test_logger_called_with_timestamp_in_extra(self) -> None:
@@ -315,6 +315,6 @@ class TestTrackLogging:
         with patch("infrastructure.usage_tracker.logger") as mock_logger:
             tracker.track("gpt-3.5-turbo", 100, 50)
         kwargs = mock_logger.info.call_args[1]
-        assert "extra" in kwargs
-        assert "timestamp" in kwargs["extra"]
+        assert "total_tokens" in kwargs
+        assert kwargs["total_tokens"] == 150
         p.stop()
