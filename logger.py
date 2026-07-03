@@ -59,6 +59,11 @@ _file_handler.setFormatter(_json_formatter)
 _root.addHandler(_console_handler)
 _root.addHandler(_file_handler)
 
+# Third-party libraries that log excessively at DEBUG — cap them at WARNING
+# so they don't drown out application logs.
+for _noisy in ("httpx", "httpcore", "chromadb", "chromadb.config", "posthog"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
 
-def get_logger(name: str) -> structlog.stdlib.BoundLogger:
+
+def get_logger(name: str) -> structlog.BoundLogger:
     return structlog.get_logger(name)
