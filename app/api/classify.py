@@ -2,6 +2,11 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.services.classification_service import ClassificationService
+from app.exceptions import (
+    RateLimitExceededException,
+    AIProviderException,
+    InvalidAIResponseException,
+)
 
 router = APIRouter()
 _service = ClassificationService()
@@ -33,12 +38,11 @@ def classify(body: ClassifyRequest):
     """
     try:
         result = _service.classify(body.ticket)
-    except ValueError as e:
+    except RateLimitExceededException as e:
+        raise HTTPException(status_code=429, detail=str(e))
+    except InvalidAIResponseException as e:
         raise HTTPException(status_code=422, detail=str(e))
-    except Exception as e:
-        msg = str(e)
-        if "rate limit" in msg.lower():
-            raise HTTPException(status_code=429, detail=msg)
-        raise HTTPException(status_code=503, detail=f"AI provider error: {msg}")
+    except AIProviderException as e:
+        raise HTTPException(status_code=503, detail=f"AI provider error: {e}")
 
     return ClassifyResponse(**result)

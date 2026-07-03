@@ -155,7 +155,7 @@ class TestSummarizeProviderCall:
         svc.provider.generate.return_value = _json_response()
         svc.summarize([])
         prompt = svc.provider.generate.call_args.kwargs["prompt"]
-        assert prompt == ""
+        assert prompt == "<reviews>\n\n</reviews>"
 
 
 # ---------------------------------------------------------------------------

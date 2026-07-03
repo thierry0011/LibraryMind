@@ -1,6 +1,30 @@
+import logging
 import httpx
 from abc import ABC, abstractmethod
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception,
+    before_sleep_log,
+)
 from config import settings
+from logger import get_logger
+from app.exceptions import InvalidAIResponseException
+
+logger = get_logger(__name__)
+
+
+def _is_retryable(exc: BaseException) -> bool:
+    """Only retry transient errors — rate limits, server faults, and network blips.
+
+    httpx exceptions are checked directly so that our custom exception types
+    (which are not httpx exceptions) are never retried — they represent
+    permanent failures like malformed responses.
+    """
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code == 429 or exc.response.status_code >= 500
+    return isinstance(exc, (httpx.TimeoutException, httpx.ConnectError))
 
 
 class BaseProvider(ABC):
@@ -10,7 +34,6 @@ class BaseProvider(ABC):
         self.max_tokens = settings.MAX_TOKENS
         self.temperature = settings.TEMPERATURE
 
-        # Best practice: Initialize a reusable client with a default timeout
         self.client = httpx.Client(timeout=30.0)
 
     @property
@@ -31,7 +54,16 @@ class BaseProvider(ABC):
         """
         pass
 
-    def generate(self, prompt: str, system: str) -> str:
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception(_is_retryable),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
+    def generate(
+        self, prompt: str, system: str, temperature: float | None = None
+    ) -> str:
         headers = {
             "Provider": self.provider,
             "X-Api-Key": self.api_key,
@@ -41,7 +73,7 @@ class BaseProvider(ABC):
             "model": self.model,
             "messages": self.messages(prompt, system),
             "max_tokens": self.max_tokens,
-            "temperature": self.temperature,
+            "temperature": temperature if temperature is not None else self.temperature,
             "stream": False,
         }
 
@@ -58,37 +90,49 @@ class BaseProvider(ABC):
             data = response.json()
 
             if self.provider == "openai":
-                # OpenAI path
                 choices = data.get("choices", [])
                 if not choices:
-                    raise ValueError("...")
+                    raise InvalidAIResponseException(
+                        f"OpenAI response contained no choices: {data}"
+                    )
                 return data["choices"][0]["message"]["content"]
 
             elif self.provider == "anthropic":
                 content = data.get("content", [])
                 if not content:
-                    raise ValueError("...")
+                    raise InvalidAIResponseException(
+                        f"Anthropic response contained no content blocks: {data}"
+                    )
                 return content[0]["text"]
 
             else:
-                raise ValueError(f"Unknown provider: {self.provider}")
+                raise InvalidAIResponseException(f"Unknown provider: {self.provider}")
 
         except httpx.HTTPStatusError as exc:
-            # Handles bad HTTP status codes (e.g., 401 Unauthorized, 429 Rate Limit)
-            print(
-                f"HTTP Error {exc.response.status_code} while requesting AI response: {exc.response.text}"
+            logger.warning(
+                "HTTP %s from %s provider: %s",
+                exc.response.status_code,
+                self.provider,
+                exc.response.text[:200],
             )
             raise
 
         except httpx.RequestError as exc:
-            # Handles network-level errors (e.g., timeouts, connection failures)
-            print(f"Network error occurred while connecting to AI provider: {exc}")
+            logger.warning("Network error from %s provider: %s", self.provider, exc)
+            raise
+
+        except InvalidAIResponseException:
+            # Already typed correctly — log and let it propagate without wrapping
+            logger.error("Malformed response from %s provider", self.provider)
             raise
 
         except (KeyError, IndexError, ValueError) as exc:
-            # Handles unexpected API response formats or parsing bugs
-            print(f"Failed to parse API response structure: {exc}")
-            raise
+            logger.error(
+                "Failed to parse response from %s provider: %s", self.provider, exc
+            )
+            raise InvalidAIResponseException(
+                f"Unexpected response format from {self.provider}: {exc}"
+            ) from exc
 
     def close(self):
         # Closes the internal HTTPX network connection pool

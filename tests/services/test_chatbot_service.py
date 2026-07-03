@@ -35,7 +35,7 @@ def svc():
     with (
         patch("services.chatbot_service.RAGEngine"),
         patch("services.chatbot_service.ResilientAIService"),
-        patch("services.chatbot_service.RateLimiter"),
+        patch("services.chatbot_service.get_rate_limiter"),
     ):
         service = ChatbotService()
 
@@ -59,7 +59,7 @@ class TestChatbotServiceInit:
         with (
             patch("services.chatbot_service.RAGEngine"),
             patch("services.chatbot_service.ResilientAIService"),
-            patch("services.chatbot_service.RateLimiter"),
+            patch("services.chatbot_service.get_rate_limiter"),
             patch("services.chatbot_service.settings") as mock_settings,
         ):
             mock_settings.MAX_CONVERSATION_HISTORY = 7
@@ -70,7 +70,7 @@ class TestChatbotServiceInit:
         with (
             patch("services.chatbot_service.RAGEngine") as MockRAG,
             patch("services.chatbot_service.ResilientAIService"),
-            patch("services.chatbot_service.RateLimiter"),
+            patch("services.chatbot_service.get_rate_limiter"),
             patch("services.chatbot_service.settings") as ms,
         ):
             ms.MAX_CONVERSATION_HISTORY = 10
@@ -81,7 +81,7 @@ class TestChatbotServiceInit:
         with (
             patch("services.chatbot_service.RAGEngine"),
             patch("services.chatbot_service.ResilientAIService") as MockProvider,
-            patch("services.chatbot_service.RateLimiter"),
+            patch("services.chatbot_service.get_rate_limiter"),
             patch("services.chatbot_service.settings") as ms,
         ):
             ms.MAX_CONVERSATION_HISTORY = 10

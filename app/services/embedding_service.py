@@ -2,6 +2,7 @@ from config import settings
 import httpx
 from logger import get_logger
 from app.infrastructure.cache import Cache
+from app.exceptions import EmbeddingException
 
 
 logger = get_logger(__name__)
@@ -35,7 +36,11 @@ class EmbeddingsService:
             if cached_embedding is not None:
                 logger.info("Returning cached embedding.")
                 return cached_embedding
-        payload = {"model": self.model, "input": text}
+        payload = {
+            "model": self.model,
+            "input": text,
+            "dimensions": settings.EMBEDDING_DIMENSIONS,
+        }
 
         headers = {
             "Provider": self.provider,
@@ -43,13 +48,25 @@ class EmbeddingsService:
             "Content-Type": "application/json",
         }
 
-        response = self.client.post(url=self.api_url, headers=headers, json=payload)
-        response.raise_for_status()
-        data = response.json()["data"]
+        try:
+            response = self.client.post(url=self.api_url, headers=headers, json=payload)
+            response.raise_for_status()
+            embedding = response.json()["data"][0]["embedding"]
+        except httpx.HTTPStatusError as exc:
+            raise EmbeddingException(
+                f"Embedding API returned HTTP {exc.response.status_code}: {exc.response.text[:200]}"
+            ) from exc
+        except httpx.RequestError as exc:
+            raise EmbeddingException(f"Embedding request failed: {exc}") from exc
+        except (KeyError, IndexError, ValueError) as exc:
+            raise EmbeddingException(
+                f"Unexpected embedding response format: {exc}"
+            ) from exc
+
         logger.info("Embeddings retrieved successfully.")
         cache_key = self.cache.generate_key("embedding", normalized)
-        self.cache.set(cache_key, data[0]["embedding"])
-        return data[0]["embedding"]
+        self.cache.set(cache_key, embedding)
+        return embedding
 
     def embed_batch(self, texts: list) -> list:
         normalized = [t.strip().lower() for t in texts]
@@ -71,19 +88,33 @@ class EmbeddingsService:
         payload = {
             "model": self.model,
             "input": [text for _, text in texts_to_fetch],
+            "dimensions": settings.EMBEDDING_DIMENSIONS,
         }
         headers = {
             "Provider": self.provider,
             "X-Api-Key": self.api_key,
             "Content-Type": "application/json",
         }
-        response = self.client.post(
-            url=self.api_url,
-            headers=headers,
-            json=payload,
-        )
-        response.raise_for_status()
-        api_data = response.json()["data"]
+
+        try:
+            response = self.client.post(
+                url=self.api_url,
+                headers=headers,
+                json=payload,
+            )
+            response.raise_for_status()
+            api_data = response.json()["data"]
+        except httpx.HTTPStatusError as exc:
+            raise EmbeddingException(
+                f"Batch embedding API returned HTTP {exc.response.status_code}: {exc.response.text[:200]}"
+            ) from exc
+        except httpx.RequestError as exc:
+            raise EmbeddingException(f"Batch embedding request failed: {exc}") from exc
+        except (KeyError, IndexError, ValueError) as exc:
+            raise EmbeddingException(
+                f"Unexpected batch embedding response format: {exc}"
+            ) from exc
+
         logger.info("Batch embeddings retrieved successfully.")
         for (i, text), item in zip(texts_to_fetch, api_data):
             embedding = item["embedding"]

@@ -16,7 +16,7 @@ import pytest
 # Inject stub BEFORE the project import pulls in the real (broken) chromadb.
 sys.modules.setdefault("chromadb", MagicMock())
 
-from infrastructure.vector_store import VectorStore  # noqa: E402
+from infrastructure.vector_store import VectorStore, _DB_PATH  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -52,7 +52,7 @@ class TestVectorStoreInit:
 
     def test_persistent_client_receives_correct_path(self, store_setup) -> None:
         _, _, _, MockClient = store_setup
-        MockClient.assert_called_once_with(path="./books_chroma_db")
+        MockClient.assert_called_once_with(path=_DB_PATH)
 
     def test_get_or_create_collection_called_once(self, store_setup) -> None:
         _, _, mock_client, _ = store_setup

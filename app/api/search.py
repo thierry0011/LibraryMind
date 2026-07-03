@@ -4,16 +4,18 @@ from pydantic import BaseModel, Field
 from app.services.embedding_service import EmbeddingsService
 from app.infrastructure.vector_store import VectorStore
 from app.services.rag_engine import RAGEngine
+from app.exceptions import (
+    RateLimitExceededException,
+    EmbeddingException,
+    VectorStoreException,
+    AIProviderException,
+    InvalidAIResponseException,
+)
 
 router = APIRouter()
 _embedding_service = EmbeddingsService()
 _vector_store = VectorStore()
 _rag_engine = RAGEngine()
-
-
-# ---------------------------------------------------------------------------
-# POST /search/books
-# ---------------------------------------------------------------------------
 
 
 class SearchRequest(BaseModel):
@@ -45,30 +47,24 @@ def search_books(body: SearchRequest):
     try:
         embedding = _embedding_service.embed(body.query)
         candidates = _vector_store.search_books(embedding, top_k=body.top_k)
-    except Exception as e:
-        msg = str(e)
-        if "rate limit" in msg.lower():
-            raise HTTPException(status_code=429, detail=msg)
-        raise HTTPException(status_code=503, detail=f"Search error: {msg}")
+    except RateLimitExceededException as e:
+        raise HTTPException(status_code=429, detail=str(e))
+    except (EmbeddingException, VectorStoreException) as e:
+        raise HTTPException(status_code=503, detail=f"Search error: {e}")
 
     results = [
         BookResult(
             id=b["id"],
             title=b["metadata"].get("title", "Unknown"),
             author=b["metadata"].get("author", "Unknown"),
-            year=b["metadata"].get("year") or None,
-            genre=b["metadata"].get("genre") or None,
+            year=str(b["metadata"]["year"]) if b["metadata"].get("year") else None,
+            genre=str(b["metadata"]["genre"]) if b["metadata"].get("genre") else None,
             description=b["document"],
             similarity=round(b["similarity"], 4),
         )
         for b in candidates
     ]
     return SearchResponse(results=results, total=len(results))
-
-
-# ---------------------------------------------------------------------------
-# POST /search/ask
-# ---------------------------------------------------------------------------
 
 
 class AskRequest(BaseModel):
@@ -95,11 +91,12 @@ def ask(body: AskRequest):
     """
     try:
         result = _rag_engine.ask(body.question)
-    except Exception as e:
-        msg = str(e)
-        if "rate limit" in msg.lower():
-            raise HTTPException(status_code=429, detail=msg)
-        raise HTTPException(status_code=503, detail=f"AI provider error: {msg}")
+    except RateLimitExceededException as e:
+        raise HTTPException(status_code=429, detail=str(e))
+    except InvalidAIResponseException as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except (AIProviderException, EmbeddingException, VectorStoreException) as e:
+        raise HTTPException(status_code=503, detail=f"AI provider error: {e}")
 
     return AskResponse(
         answer=result["answer"],
