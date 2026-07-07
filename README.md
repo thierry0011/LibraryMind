@@ -18,7 +18,7 @@ LibraryMind/
 ├── scripts/
 │   ├── seed.py         # Populate ChromaDB from books.json
 │   └── smoke_test.py   # End-to-end validation script
-├── tests/              # pytest unit tests (324 tests)
+├── tests/              # pytest unit tests (388 tests)
 ├── config.py
 ├── logger.py           # structlog configuration (console + JSON file output)
 ├── main.py
@@ -156,6 +156,24 @@ curl -X POST http://localhost:8000/search/ask \
   "cached": false
 }
 ```
+
+### RAG Q&A — structured question (year filter)
+```bash
+curl -X POST http://localhost:8000/search/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What books do you have that came out before the year 2000?"}'
+```
+```json
+{
+  "answer": "We have several books published before 2000, including Dune, Foundation, and Pride and Prejudice...",
+  "sources": [
+    { "title": "Dune", "author": "Frank Herbert", "similarity": 1.0 },
+    { "title": "Foundation", "author": "Isaac Asimov", "similarity": 1.0 }
+  ],
+  "cached": false
+}
+```
+This bypasses semantic similarity entirely — the year range is parsed from the question and matched directly against each book's `year` metadata, so `similarity` is `1.0` for every result rather than a fuzzy embedding score.
 
 ### Chat (turn 1)
 ```bash
@@ -338,7 +356,7 @@ All logging goes through `structlog` (configured in `logger.py`), not the stdlib
 
 ## Running Tests
 
-### Unit tests (324 tests)
+### Unit tests (388 tests)
 ```bash
 pytest tests/ -v
 ```
@@ -379,15 +397,24 @@ When a patron asks a question via `POST /search/ask`:
 
 1. **Cache check** — if this exact question was asked before, return the cached answer immediately from Redis
 2. **Rate limit** — acquire a token from the shared bucket; return HTTP 429 if exhausted
-3. **Embed** — convert the question into a 512-dimensional vector via the AmaliAI embeddings endpoint
-4. **Search** — query ChromaDB for the top-K most similar book vectors using HNSW cosine search
-5. **Filter** — discard books with cosine similarity below `RELEVANCE_THRESHOLD` (default 0.35)
-6. **Refusal check** — if no books pass the threshold, return a polite refusal with no AI call (no hallucination)
-7. **Build prompt** — format the relevant books into a structured context block combined with the question
-8. **Generate** — send through ResilientAIService → tries primary provider, falls back if needed
-9. **Track** — count tokens with tiktoken, estimate cost, record in UsageTracker
-10. **Cache** — store the answer and sources in Redis for future identical queries
-11. **Return** — `{ answer, sources: [{title, author, similarity}], cached: bool }`
+3. **Route** — check whether the question is a structured query (a publication-year range/decade, or an enumeration phrase like "how many"/"list all"). If so, skip straight to step 6 using metadata filtering instead of embeddings; otherwise continue to step 4
+4. **Embed** — convert the question into a 512-dimensional vector via the AmaliAI embeddings endpoint
+5. **Search** — query ChromaDB for the top-K most similar book vectors using HNSW cosine search
+6. **Filter** — for semantic queries, discard books with cosine similarity below `RELEVANCE_THRESHOLD` (default 0.35); for structured queries, keep only books matching the parsed year/genre/author filter
+7. **Refusal check** — if no books pass the filter, return a polite refusal with no AI call (no hallucination)
+8. **Build prompt** — format the relevant books into a structured context block combined with the question
+9. **Generate** — send through ResilientAIService → tries primary provider, falls back if needed
+10. **Track** — count tokens with tiktoken, estimate cost, record in UsageTracker
+11. **Cache** — store the answer and sources in Redis for future identical queries
+12. **Return** — `{ answer, sources: [{title, author, similarity}], cached: bool }`
+
+### Anti-Hallucination & Structured Query Routing
+
+Two guarantees keep RAG and chatbot answers grounded in the catalogue rather than the model's own training data:
+
+**The model cannot supplement context with outside knowledge.** Both `RAGEngine`'s system prompt and `ChatbotService`'s conversational-wrap prompt explicitly forbid using training-data knowledge about real books or authors — even ones the model recognises — and require an explicit "not in our catalog" answer whenever a field is missing, empty, or not covered by the retrieved context. A plain "answer only from context" instruction isn't enough on its own: a model that already knows a book's real author from training will tend to "helpfully" fill a missing field rather than say it doesn't know, so both prompts say so explicitly.
+
+**Structured questions bypass semantic search entirely.** Dense vector similarity only works when a question resembles a book's *description* — it structurally cannot answer "what books came out before 2000?" or "how many fantasy books do you have?", since no description is semantically close to a date range or a count. `RAGEngine` runs a cheap, catalogue-independent check (`looks_like_metadata_query` in `app/services/metadata_filter.py`) before embedding anything; if the question mentions a year range/decade or an enumeration phrase, it filters the full catalogue's metadata (year, genre, author) directly instead of running a similarity search. Both retrieval paths converge on the same shape (`relevant_books`, `refusal_message`), so context-building, generation, caching, and usage tracking behave identically regardless of which path ran.
 
 ### How Provider Fallback Works
 
