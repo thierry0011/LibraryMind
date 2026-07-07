@@ -103,9 +103,7 @@ class RAGEngine:
             return relevant, no_match_answer
 
         query_vector = self.embedding_service.embed(question)
-        candidates = self.vector_store.search_books(
-            query_vector, top_k=self.rag_top_k
-        )
+        candidates = self.vector_store.search_books(query_vector, top_k=self.rag_top_k)
         relevant = [
             b for b in candidates if b["similarity"] >= self.relevance_threshold
         ]
@@ -115,7 +113,9 @@ class RAGEngine:
         )
 
         if not relevant and previous_books and looks_like_vague_followup(question):
-            logger.info("Falling back to previously discussed books for vague follow-up.")
+            logger.info(
+                "Falling back to previously discussed books for vague follow-up."
+            )
             return previous_books, no_match_answer
 
         return relevant, no_match_answer

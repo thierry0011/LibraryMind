@@ -23,7 +23,10 @@ from services.metadata_filter import (
 
 class TestParseYearFilter:
     def test_before_year(self):
-        assert parse_year_filter("books published before 2000") == {"op": "lt", "year": 2000}
+        assert parse_year_filter("books published before 2000") == {
+            "op": "lt",
+            "year": 2000,
+        }
 
     def test_prior_to_year(self):
         assert parse_year_filter("anything prior to 1990") == {"op": "lt", "year": 1990}
@@ -32,7 +35,10 @@ class TestParseYearFilter:
         assert parse_year_filter("books after 2010") == {"op": "gt", "year": 2010}
 
     def test_since_year(self):
-        assert parse_year_filter("what came out since 2015") == {"op": "gt", "year": 2015}
+        assert parse_year_filter("what came out since 2015") == {
+            "op": "gt",
+            "year": 2015,
+        }
 
     def test_up_to_year(self):
         assert parse_year_filter("books up to 1980") == {"op": "lte", "year": 1980}
@@ -41,7 +47,10 @@ class TestParseYearFilter:
         assert parse_year_filter("books from 2005") == {"op": "gte", "year": 2005}
 
     def test_exact_year(self):
-        assert parse_year_filter("what was published in 1965") == {"op": "eq", "year": 1965}
+        assert parse_year_filter("what was published in 1965") == {
+            "op": "eq",
+            "year": 1965,
+        }
 
     def test_between_years(self):
         assert parse_year_filter("books between 1980 and 1990") == {
@@ -183,7 +192,9 @@ class TestBuildFilterSpec:
 
 class TestBookMatches:
     def test_no_filters_matches_everything(self):
-        assert book_matches({"year": 1965}, {"year": None, "genre": None, "author": None})
+        assert book_matches(
+            {"year": 1965}, {"year": None, "genre": None, "author": None}
+        )
 
     def test_year_lt_matches(self):
         filters = {"year": {"op": "lt", "year": 2000}, "genre": None, "author": None}
@@ -191,7 +202,11 @@ class TestBookMatches:
         assert book_matches({"year": 2005}, filters) is False
 
     def test_year_between_matches(self):
-        filters = {"year": {"op": "between", "start": 1980, "end": 1990}, "genre": None, "author": None}
+        filters = {
+            "year": {"op": "between", "start": 1980, "end": 1990},
+            "genre": None,
+            "author": None,
+        }
         assert book_matches({"year": 1985}, filters) is True
         assert book_matches({"year": 1979}, filters) is False
         assert book_matches({"year": 1990}, filters) is True
@@ -233,7 +248,9 @@ class TestBookMatches:
 
 class TestDescribeNoMatch:
     def test_year_only(self):
-        msg = describe_no_match({"year": {"op": "lt", "year": 2000}, "genre": None, "author": None})
+        msg = describe_no_match(
+            {"year": {"op": "lt", "year": 2000}, "genre": None, "author": None}
+        )
         assert "before 2000" in msg
 
     def test_genre_only(self):
@@ -241,7 +258,9 @@ class TestDescribeNoMatch:
         assert "Fantasy" in msg
 
     def test_author_only(self):
-        msg = describe_no_match({"year": None, "genre": None, "author": "Frank Herbert"})
+        msg = describe_no_match(
+            {"year": None, "genre": None, "author": "Frank Herbert"}
+        )
         assert "Frank Herbert" in msg
 
     def test_no_filters_generic_message(self):

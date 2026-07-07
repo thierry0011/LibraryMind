@@ -28,13 +28,6 @@ multi-provider AI layer (OpenAI + Anthropic with automatic fallback).
 
 ---
 
-### Knowledge Base
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/books/` | Embed a book description and upsert it into the vector store. Uses a deterministic UUID (title + author) so re-submitting the same book is an idempotent upsert, not a duplicate. |
-
----
-
 ### Search & Q&A
 | Method | Path | Description |
 |--------|------|-------------|

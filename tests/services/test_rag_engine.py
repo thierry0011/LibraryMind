@@ -453,12 +453,22 @@ class TestRAGEngineMetadataFilterRouting:
             {
                 "id": "book_001",
                 "document": "Desert planet epic.",
-                "metadata": {"title": "Dune", "author": "Frank Herbert", "year": 1965, "genre": "Science Fiction"},
+                "metadata": {
+                    "title": "Dune",
+                    "author": "Frank Herbert",
+                    "year": 1965,
+                    "genre": "Science Fiction",
+                },
             },
             {
                 "id": "book_002",
                 "document": "Mars survival story.",
-                "metadata": {"title": "The Martian", "author": "Andy Weir", "year": 2011, "genre": "Science Fiction"},
+                "metadata": {
+                    "title": "The Martian",
+                    "author": "Andy Weir",
+                    "year": 2011,
+                    "genre": "Science Fiction",
+                },
             },
         ]
 
@@ -607,7 +617,9 @@ class TestRAGEngineVagueFollowupFallback:
     def test_real_match_preferred_over_fallback(self, rag):
         rag.cache.get.return_value = None
         rag.embedding_service.embed.return_value = [0.1]
-        rag.vector_store.search_books.return_value = [_make_book(title="Dune", similarity=0.9)]
+        rag.vector_store.search_books.return_value = [
+            _make_book(title="Dune", similarity=0.9)
+        ]
         rag.provider.generate.return_value = "Dune is..."
         previous = [_make_book(title="Rich Dad Poor Dad")]
 

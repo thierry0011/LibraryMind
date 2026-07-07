@@ -109,8 +109,12 @@ def extract_known_term(question: str, candidates) -> str | None:
 def build_filter_spec(question: str, all_books: list) -> dict:
     """Build a filter spec from the question, resolving genre/author against
     the values that actually exist in the catalogue."""
-    known_genres = {b["metadata"].get("genre") for b in all_books if b["metadata"].get("genre")}
-    known_authors = {b["metadata"].get("author") for b in all_books if b["metadata"].get("author")}
+    known_genres = {
+        b["metadata"].get("genre") for b in all_books if b["metadata"].get("genre")
+    }
+    known_authors = {
+        b["metadata"].get("author") for b in all_books if b["metadata"].get("author")
+    }
     return {
         "year": parse_year_filter(question),
         "genre": extract_known_term(question, known_genres),
@@ -146,11 +150,17 @@ def book_matches(metadata: dict, filters: dict) -> bool:
         return False
 
     genre_filter = filters.get("genre")
-    if genre_filter is not None and str(metadata.get("genre", "")).lower() != genre_filter.lower():
+    if (
+        genre_filter is not None
+        and str(metadata.get("genre", "")).lower() != genre_filter.lower()
+    ):
         return False
 
     author_filter = filters.get("author")
-    if author_filter is not None and str(metadata.get("author", "")).lower() != author_filter.lower():
+    if (
+        author_filter is not None
+        and str(metadata.get("author", "")).lower() != author_filter.lower()
+    ):
         return False
 
     return True
