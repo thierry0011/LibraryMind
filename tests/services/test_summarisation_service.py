@@ -37,10 +37,17 @@ def _json_response(data: dict = None) -> str:
 
 @pytest.fixture
 def svc():
-    """SummarizationService with ResilientAIService replaced by a MagicMock."""
-    with patch("services.summarisation_service.ResilientAIService"):
+    """SummarizationService with ResilientAIService and Cache replaced by
+    MagicMocks — a real Cache would hit live Redis and leak state between
+    tests that reuse the same review text."""
+    with (
+        patch("services.summarisation_service.ResilientAIService"),
+        patch("services.summarisation_service.Cache"),
+    ):
         service = SummarizationService()
     service.provider = MagicMock()
+    service.cache = MagicMock()
+    service.cache.get.return_value = None
     return service
 
 

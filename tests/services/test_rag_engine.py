@@ -441,6 +441,213 @@ class TestBuildPrompt:
 # ---------------------------------------------------------------------------
 
 
+class TestRAGEngineMetadataFilterRouting:
+    """
+    Structured questions (year ranges, "how many X books") must be answered
+    by filtering the full catalogue's metadata, not by semantic similarity
+    over book descriptions — similarity search can't reliably answer these.
+    """
+
+    def _catalogue(self):
+        return [
+            {
+                "id": "book_001",
+                "document": "Desert planet epic.",
+                "metadata": {
+                    "title": "Dune",
+                    "author": "Frank Herbert",
+                    "year": 1965,
+                    "genre": "Science Fiction",
+                },
+            },
+            {
+                "id": "book_002",
+                "document": "Mars survival story.",
+                "metadata": {
+                    "title": "The Martian",
+                    "author": "Andy Weir",
+                    "year": 2011,
+                    "genre": "Science Fiction",
+                },
+            },
+        ]
+
+    def test_year_filter_skips_embedding_call(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+        rag.provider.generate.return_value = "Only Dune is before 2000."
+
+        rag.ask("What books came out before the year 2000?")
+
+        rag.embedding_service.embed.assert_not_called()
+
+    def test_year_filter_skips_semantic_search(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+        rag.provider.generate.return_value = "Only Dune is before 2000."
+
+        rag.ask("What books came out before the year 2000?")
+
+        rag.vector_store.search_books.assert_not_called()
+
+    def test_year_filter_only_matching_book_in_sources(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+        rag.provider.generate.return_value = "Only Dune is before 2000."
+
+        result = rag.ask("What books came out before the year 2000?")
+
+        titles = [s["title"] for s in result["sources"]]
+        assert titles == ["Dune"]
+
+    def test_year_filter_no_matches_returns_refusal_without_generate_call(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+
+        result = rag.ask("What books came out before the year 1900?")
+
+        assert result["sources"] == []
+        assert "1900" in result["answer"]
+        rag.provider.generate.assert_not_called()
+
+    def test_year_filter_no_matches_does_not_track_usage(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+
+        rag.ask("What books came out before the year 1900?")
+
+        rag.usage_tracker.track.assert_not_called()
+
+    def test_enumeration_query_matches_all_books(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+        rag.provider.generate.return_value = "We have 2 books."
+
+        result = rag.ask("How many books do you have?")
+
+        titles = [s["title"] for s in result["sources"]]
+        assert set(titles) == {"Dune", "The Martian"}
+
+    def test_normal_question_still_uses_semantic_search(self, rag):
+        rag.cache.get.return_value = None
+        rag.embedding_service.embed.return_value = [0.1]
+        rag.vector_store.search_books.return_value = [_make_book(similarity=0.9)]
+        rag.provider.generate.return_value = "Dune is great."
+
+        rag.ask("What is Dune about?")
+
+        rag.vector_store.get_all_books.assert_not_called()
+        rag.vector_store.search_books.assert_called_once()
+
+    def test_year_filter_response_is_cached(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+        rag.provider.generate.return_value = "Only Dune is before 2000."
+
+        rag.ask("What books came out before the year 2000?")
+
+        rag.cache.set.assert_called_once()
+
+    def test_rate_limiter_released_on_failure_during_metadata_path(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.side_effect = Exception("ChromaDB down")
+
+        with pytest.raises(Exception, match="ChromaDB down"):
+            rag.ask("What books came out before the year 2000?")
+
+        rag.rate_limiter.release.assert_called_once()
+
+
+class TestRAGEngineAskReturnsBooks:
+    def test_result_includes_raw_books_used_for_context(self, rag):
+        rag.cache.get.return_value = None
+        rag.embedding_service.embed.return_value = [0.1]
+        book = _make_book(similarity=0.9)
+        rag.vector_store.search_books.return_value = [book]
+        rag.provider.generate.return_value = "Answer."
+
+        result = rag.ask("What is Dune about?")
+
+        assert result["books"] == [book]
+
+    def test_no_match_result_has_no_books_key(self, rag):
+        rag.cache.get.return_value = None
+        rag.embedding_service.embed.return_value = [0.1]
+        rag.vector_store.search_books.return_value = [_make_book(similarity=0.1)]
+
+        result = rag.ask("Off-topic question.")
+
+        assert "books" not in result
+
+
+class TestRAGEngineVagueFollowupFallback:
+    def test_falls_back_to_previous_books_when_nothing_found(self, rag):
+        rag.cache.get.return_value = None
+        rag.embedding_service.embed.return_value = [0.1]
+        rag.vector_store.search_books.return_value = []
+        rag.provider.generate.return_value = "Rich Dad Poor Dad is about..."
+        previous = [_make_book(title="Rich Dad Poor Dad")]
+
+        result = rag.ask("tell me more about this book", previous_books=previous)
+
+        assert result["answer"] == "Rich Dad Poor Dad is about..."
+        assert result["sources"][0]["title"] == "Rich Dad Poor Dad"
+
+    def test_no_fallback_without_previous_books(self, rag):
+        rag.cache.get.return_value = None
+        rag.embedding_service.embed.return_value = [0.1]
+        rag.vector_store.search_books.return_value = []
+
+        result = rag.ask("tell me more about this book", previous_books=None)
+
+        assert result["sources"] == []
+        rag.provider.generate.assert_not_called()
+
+    def test_no_fallback_when_question_is_not_a_followup(self, rag):
+        rag.cache.get.return_value = None
+        rag.embedding_service.embed.return_value = [0.1]
+        rag.vector_store.search_books.return_value = []
+        previous = [_make_book(title="Rich Dad Poor Dad")]
+
+        result = rag.ask("What is quantum computing?", previous_books=previous)
+
+        assert result["sources"] == []
+        rag.provider.generate.assert_not_called()
+
+    def test_real_match_preferred_over_fallback(self, rag):
+        rag.cache.get.return_value = None
+        rag.embedding_service.embed.return_value = [0.1]
+        rag.vector_store.search_books.return_value = [
+            _make_book(title="Dune", similarity=0.9)
+        ]
+        rag.provider.generate.return_value = "Dune is..."
+        previous = [_make_book(title="Rich Dad Poor Dad")]
+
+        result = rag.ask("tell me more about this book", previous_books=previous)
+
+        titles = [s["title"] for s in result["sources"]]
+        assert titles == ["Dune"]
+
+    def test_vague_followup_bypasses_cache_get(self, rag):
+        rag.embedding_service.embed.return_value = [0.1]
+        rag.vector_store.search_books.return_value = []
+        previous = [_make_book(title="Rich Dad Poor Dad")]
+
+        rag.ask("tell me more about this book", previous_books=previous)
+
+        rag.cache.get.assert_not_called()
+
+    def test_vague_followup_bypasses_cache_set(self, rag):
+        rag.embedding_service.embed.return_value = [0.1]
+        rag.vector_store.search_books.return_value = []
+        rag.provider.generate.return_value = "Answer."
+        previous = [_make_book(title="Rich Dad Poor Dad")]
+
+        rag.ask("tell me more about this book", previous_books=previous)
+
+        rag.cache.set.assert_not_called()
+
+
 class TestCountTokens:
     def test_returns_length_of_encoded_tokens(self, rag):
         rag._tokenizer.encode.return_value = [1, 2, 3, 4, 5]

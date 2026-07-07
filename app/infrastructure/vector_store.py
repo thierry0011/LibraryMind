@@ -70,3 +70,22 @@ class VectorStore:
                 }
             )
         return books
+
+    def get_all_books(self) -> list:
+        """
+        Fetch every book in the collection with its metadata, for structured
+        (non-semantic) filtering — e.g. by publication year, genre, or author.
+        """
+        try:
+            results = self.collection.get(include=["metadatas", "documents"])
+        except Exception as exc:
+            raise VectorStoreException(f"ChromaDB get failed: {exc}") from exc
+
+        ids = results.get("ids") or []
+        documents = results.get("documents") or []
+        metadatas = results.get("metadatas") or []
+
+        return [
+            {"id": ids[i], "document": documents[i], "metadata": metadatas[i]}
+            for i in range(len(ids))
+        ]

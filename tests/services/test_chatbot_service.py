@@ -20,8 +20,11 @@ from services.chatbot_service import ChatbotService, _SYSTEM_PROMPT  # noqa: E40
 # ---------------------------------------------------------------------------
 
 
-def _rag_result(answer="Some book context.", sources=None):
-    return {"answer": answer, "sources": sources or [], "cached": False}
+def _rag_result(answer="Some book context.", sources=None, books=None):
+    result = {"answer": answer, "sources": sources or [], "cached": False}
+    if books is not None:
+        result["books"] = books
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -164,7 +167,9 @@ class TestChatRAGIntegration:
         svc.rag_engine.ask.return_value = _rag_result()
         svc.provider.generate.return_value = "reply"
         svc.chat("id1", "Tell me about Dune.")
-        svc.rag_engine.ask.assert_called_once_with("Tell me about Dune.")
+        svc.rag_engine.ask.assert_called_once_with(
+            "Tell me about Dune.", previous_books=None
+        )
 
     def test_rag_engine_called_exactly_once_per_chat(self, svc):
         svc.rag_engine.ask.return_value = _rag_result()
@@ -239,6 +244,75 @@ class TestChatPromptConstruction:
 # ---------------------------------------------------------------------------
 # TestChatHistoryManagement
 # ---------------------------------------------------------------------------
+
+
+class TestChatLastBooksTracking:
+    def test_starts_empty(self, svc):
+        assert svc.last_books == {}
+
+    def test_first_turn_stores_books_from_rag_result(self, svc):
+        book = {"metadata": {"title": "Dune"}}
+        svc.rag_engine.ask.return_value = _rag_result(books=[book])
+        svc.provider.generate.return_value = "reply"
+        svc.chat("id1", "Tell me about Dune.")
+        assert svc.last_books["id1"] == [book]
+
+    def test_no_books_key_leaves_last_books_untouched(self, svc):
+        book = {"metadata": {"title": "Dune"}}
+        svc.last_books["id1"] = [book]
+        svc.rag_engine.ask.return_value = _rag_result()  # no "books" key at all
+        svc.provider.generate.return_value = "reply"
+        svc.chat("id1", "Off-topic question.")
+        assert svc.last_books["id1"] == [book]
+
+    def test_empty_books_list_leaves_last_books_untouched(self, svc):
+        book = {"metadata": {"title": "Dune"}}
+        svc.last_books["id1"] = [book]
+        svc.rag_engine.ask.return_value = _rag_result(books=[])
+        svc.provider.generate.return_value = "reply"
+        svc.chat("id1", "Off-topic question.")
+        assert svc.last_books["id1"] == [book]
+
+    def test_new_books_overwrite_previous_ones(self, svc):
+        old_book = {"metadata": {"title": "Dune"}}
+        new_book = {"metadata": {"title": "Foundation"}}
+        svc.last_books["id1"] = [old_book]
+        svc.rag_engine.ask.return_value = _rag_result(books=[new_book])
+        svc.provider.generate.return_value = "reply"
+        svc.chat("id1", "Tell me about Foundation.")
+        assert svc.last_books["id1"] == [new_book]
+
+    def test_second_turn_passes_previous_books_to_rag_engine(self, svc):
+        book = {"metadata": {"title": "Dune"}}
+        svc.rag_engine.ask.return_value = _rag_result(books=[book])
+        svc.provider.generate.return_value = "reply"
+        svc.chat("id1", "Tell me about Dune.")
+
+        svc.rag_engine.ask.return_value = _rag_result()
+        svc.chat("id1", "tell me more about this book")
+
+        svc.rag_engine.ask.assert_called_with(
+            "tell me more about this book", previous_books=[book]
+        )
+
+    def test_first_turn_passes_none_as_previous_books(self, svc):
+        svc.rag_engine.ask.return_value = _rag_result()
+        svc.provider.generate.return_value = "reply"
+        svc.chat("id1", "hello")
+        svc.rag_engine.ask.assert_called_once_with("hello", previous_books=None)
+
+    def test_separate_conversations_have_independent_last_books(self, svc):
+        book_a = {"metadata": {"title": "Dune"}}
+        svc.rag_engine.ask.return_value = _rag_result(books=[book_a])
+        svc.provider.generate.return_value = "reply"
+        svc.chat("conv-A", "Tell me about Dune.")
+
+        svc.rag_engine.ask.return_value = _rag_result()
+        svc.chat("conv-B", "tell me more about this book")
+
+        svc.rag_engine.ask.assert_called_with(
+            "tell me more about this book", previous_books=None
+        )
 
 
 class TestChatHistoryManagement:
