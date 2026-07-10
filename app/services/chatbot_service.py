@@ -70,7 +70,9 @@ class ChatbotService:
             )
         except Exception as e:
             self.rate_limiter.release()
-            logger.warning("Query rewrite failed; falling back to raw message.", error=str(e))
+            logger.warning(
+                "Query rewrite failed; falling back to raw message.", error=str(e)
+            )
             return message
 
         return rewritten.strip() or message
@@ -89,7 +91,9 @@ class ChatbotService:
         # books discussed so vague follow-ups ("tell me more about this book")
         # can fall back to them when retrieval on the bare message finds nothing.
         previous_books = self.last_books.get(conversation_id)
-        rag_result = self.rag_engine.ask(standalone_query, previous_books=previous_books)
+        rag_result = self.rag_engine.ask(
+            standalone_query, previous_books=previous_books
+        )
 
         books = rag_result.get("books")
         if books:
