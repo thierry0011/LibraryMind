@@ -12,7 +12,11 @@ import pytest
 
 sys.modules.setdefault("chromadb", MagicMock())
 
-from services.chatbot_service import ChatbotService, _SYSTEM_PROMPT  # noqa: E402
+from services.chatbot_service import (  # noqa: E402
+    ChatbotService,
+    _REWRITE_SYSTEM_PROMPT,
+    _SYSTEM_PROMPT,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -289,10 +293,13 @@ class TestChatLastBooksTracking:
         svc.chat("id1", "Tell me about Dune.")
 
         svc.rag_engine.ask.return_value = _rag_result()
+        # Second turn has history, so _rewrite_query fires before rag_engine.ask:
+        # first generate() call is the rewrite, second is the conversational wrap.
+        svc.provider.generate.side_effect = ["What is Dune about?", "reply"]
         svc.chat("id1", "tell me more about this book")
 
         svc.rag_engine.ask.assert_called_with(
-            "tell me more about this book", previous_books=[book]
+            "What is Dune about?", previous_books=[book]
         )
 
     def test_first_turn_passes_none_as_previous_books(self, svc):
@@ -313,6 +320,64 @@ class TestChatLastBooksTracking:
         svc.rag_engine.ask.assert_called_with(
             "tell me more about this book", previous_books=None
         )
+
+
+class TestRewriteQuery:
+    def test_no_history_returns_message_unchanged(self, svc):
+        assert svc._rewrite_query([], "Tell me about Dune.") == "Tell me about Dune."
+
+    def test_no_history_does_not_call_provider(self, svc):
+        svc._rewrite_query([], "Tell me about Dune.")
+        svc.provider.generate.assert_not_called()
+
+    def test_with_history_calls_provider_with_rewrite_system_prompt(self, svc):
+        history = [
+            {"role": "user", "content": "Tell me about Dune."},
+            {"role": "assistant", "content": "Dune is by Frank Herbert."},
+        ]
+        svc.provider.generate.return_value = "What is Dune about?"
+        svc._rewrite_query(history, "what's it about")
+        assert (
+            svc.provider.generate.call_args.kwargs["system"] == _REWRITE_SYSTEM_PROMPT
+        )
+
+    def test_with_history_prompt_contains_history_and_message(self, svc):
+        history = [{"role": "user", "content": "HISTORY_MARKER"}]
+        svc.provider.generate.return_value = "rewritten"
+        svc._rewrite_query(history, "LATEST_MARKER")
+        prompt = svc.provider.generate.call_args.kwargs["prompt"]
+        assert "HISTORY_MARKER" in prompt
+        assert "LATEST_MARKER" in prompt
+
+    def test_with_history_uses_deterministic_temperature(self, svc):
+        history = [{"role": "user", "content": "hi"}]
+        svc.provider.generate.return_value = "rewritten"
+        svc._rewrite_query(history, "what's it about")
+        assert svc.provider.generate.call_args.kwargs["temperature"] == 0.0
+
+    def test_returns_rewritten_query(self, svc):
+        history = [{"role": "user", "content": "Tell me about Dune."}]
+        svc.provider.generate.return_value = "  What is Dune about?  "
+        result = svc._rewrite_query(history, "what's it about")
+        assert result == "What is Dune about?"
+
+    def test_falls_back_to_message_on_provider_failure(self, svc):
+        history = [{"role": "user", "content": "Tell me about Dune."}]
+        svc.provider.generate.side_effect = Exception("all providers failed")
+        result = svc._rewrite_query(history, "what's it about")
+        assert result == "what's it about"
+
+    def test_releases_rate_limit_token_on_provider_failure(self, svc):
+        history = [{"role": "user", "content": "Tell me about Dune."}]
+        svc.provider.generate.side_effect = Exception("all providers failed")
+        svc._rewrite_query(history, "what's it about")
+        svc.rate_limiter.release.assert_called_once()
+
+    def test_blank_rewrite_falls_back_to_message(self, svc):
+        history = [{"role": "user", "content": "Tell me about Dune."}]
+        svc.provider.generate.return_value = "   "
+        result = svc._rewrite_query(history, "what's it about")
+        assert result == "what's it about"
 
 
 class TestChatHistoryManagement:
