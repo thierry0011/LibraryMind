@@ -8,9 +8,14 @@ from app.services.metadata_filter import (
     build_filter_spec,
     describe_no_match,
     extract_known_term,
+    has_temporal_cue,
     looks_like_metadata_query,
     looks_like_vague_followup,
+    parse_year_filter,
 )
+from app.services.query_signals import has_hard_signal
+from app.services.query_planner import plan_query
+from app.services.query_validator import validate_query_plan
 from app.providers.resilient_ai_service import ResilientAIService
 from config import settings
 from logger import get_logger
@@ -100,6 +105,22 @@ class RAGEngine:
     def _count_tokens(self, text: str) -> int:
         return len(self._tokenizer.encode(text))
 
+    def _plan_and_validate(
+        self, question: str, known_genres, known_authors
+    ) -> dict | None:
+        """Ask the AI query planner to interpret `question`, then validate
+        its output against the real catalogue. Returns None if the planner
+        call itself failed (bad JSON, provider outage) — a validated plan
+        that simply resolved nothing usable is still a dict, not None; only
+        a hard planner failure should skip straight past this to plain
+        semantic search on the raw question."""
+        raw_plan = plan_query(
+            self.provider, self.rate_limiter, self.cache, question, known_genres
+        )
+        if raw_plan is None:
+            return None
+        return validate_query_plan(raw_plan, known_genres, known_authors)
+
     def _retrieve_relevant_books(
         self, question: str, previous_books: list | None = None
     ) -> tuple[list, str]:
@@ -110,30 +131,62 @@ class RAGEngine:
         Structured questions (publication-year ranges, "how many X books",
         genre/author lookups) are answered by filtering the full catalogue's
         metadata directly — dense similarity search over book descriptions
-        can't reliably answer those. Everything else falls back to the
-        existing semantic vector search.
+        can't reliably answer those.
 
+        Some questions need the AI query planner instead of the
+        deterministic regex/substring parsing above: non-English questions,
+        "similar to X" comparison requests (a retrieval strategy the
+        deterministic path can't express at all, regardless of phrasing),
+        and temporal claims ("published two thousand seven") the year regex
+        can't parse. When the planner fires, its validated output is used
+        exclusively rather than merged with any partial deterministic
+        result, since the planner re-derives genre/author/year together
+        with full context rather than piecemeal.
+
+        Everything else falls back to the existing semantic vector search.
         If semantic search comes up empty and the question is a vague
         follow-up ("tell me more about this book") rather than a new topic,
         fall back to whatever books were relevant on the previous turn —
         the patron is almost certainly still asking about those.
         """
         known_genres, known_authors = self._known_genres_and_authors()
-        mentions_genre = extract_known_term(question, known_genres) is not None
-        mentions_author = extract_known_term(question, known_authors) is not None
 
-        if looks_like_metadata_query(question) or mentions_genre or mentions_author:
+        needs_planner = has_hard_signal(question) or (
+            has_temporal_cue(question) and parse_year_filter(question) is None
+        )
+
+        plan = None
+        if needs_planner:
+            plan = self._plan_and_validate(question, known_genres, known_authors)
+        else:
+            mentions_genre = extract_known_term(question, known_genres) is not None
+            mentions_author = extract_known_term(question, known_authors) is not None
+            if looks_like_metadata_query(question) or mentions_genre or mentions_author:
+                all_books = self.vector_store.get_all_books()
+                filters = build_filter_spec(question, all_books)
+                relevant = [
+                    {**b, "similarity": 1.0}
+                    for b in all_books
+                    if book_matches(b["metadata"], filters)
+                ]
+                no_match_answer = describe_no_match(filters)
+                return relevant, no_match_answer
+
+        if plan and plan["has_structured_filter"]:
             all_books = self.vector_store.get_all_books()
-            filters = build_filter_spec(question, all_books)
             relevant = [
                 {**b, "similarity": 1.0}
                 for b in all_books
-                if book_matches(b["metadata"], filters)
+                if book_matches(b["metadata"], plan["filters"])
             ]
-            no_match_answer = describe_no_match(filters)
+            no_match_answer = describe_no_match(plan["filters"])
             return relevant, no_match_answer
 
-        query_vector = self.embedding_service.embed(question)
+        search_text = question
+        if plan:
+            search_text = plan.get("semantic_query") or plan.get("title") or question
+
+        query_vector = self.embedding_service.embed(search_text)
         candidates = self.vector_store.search_books(query_vector, top_k=self.rag_top_k)
         relevant = [
             b for b in candidates if b["similarity"] >= self.relevance_threshold
@@ -218,7 +271,9 @@ class RAGEngine:
             {
                 "title": b["metadata"].get("title"),
                 "author": b["metadata"].get("author"),
-                "year": str(b["metadata"]["year"]) if b["metadata"].get("year") else None,
+                "year": str(b["metadata"]["year"])
+                if b["metadata"].get("year")
+                else None,
                 "genre": b["metadata"].get("genre"),
                 "isbn": b["metadata"].get("isbn"),
                 "shelf_number": b["metadata"].get("shelf_number"),

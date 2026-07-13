@@ -29,6 +29,13 @@ class settings:
 
     RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", 60))
 
+    CIRCUIT_BREAKER_FAILURE_THRESHOLD = int(
+        os.getenv("CIRCUIT_BREAKER_FAILURE_THRESHOLD", 3)
+    )
+    CIRCUIT_BREAKER_RECOVERY_TIMEOUT = float(
+        os.getenv("CIRCUIT_BREAKER_RECOVERY_TIMEOUT", 30)
+    )
+
     if not AMALIAI_API_KEY or not AMALIAI_BASE_URL:
         raise ValueError(
             "AMALIAI_API_KEY and AMALIAI_BASE_URL must be set in the environment variables."

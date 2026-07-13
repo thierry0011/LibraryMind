@@ -10,6 +10,7 @@ from services.metadata_filter import (
     describe_no_match,
     extract_known_term,
     has_enumeration_cue,
+    has_temporal_cue,
     looks_like_metadata_query,
     looks_like_vague_followup,
     parse_year_filter,
@@ -96,6 +97,25 @@ class TestEnumerationCue:
         assert has_enumeration_cue("what is Dune about?") is False
 
 
+class TestTemporalCue:
+    def test_published_cue(self):
+        assert has_temporal_cue("books published after two thousand seven") is True
+
+    def test_came_out_cue(self):
+        assert has_temporal_cue("what came out recently") is True
+
+    def test_written_in_cue(self):
+        assert has_temporal_cue("anything written in the nineties") is True
+
+    def test_no_cue(self):
+        assert has_temporal_cue("what is Dune about?") is False
+
+    def test_fires_even_when_year_regex_would_also_match(self):
+        # has_temporal_cue is deliberately independent of whether
+        # parse_year_filter can resolve the year — callers combine the two.
+        assert has_temporal_cue("published after 2007") is True
+
+
 class TestLooksLikeMetadataQuery:
     def test_year_query_is_metadata_query(self):
         assert looks_like_metadata_query("books before 2000") is True
@@ -156,6 +176,37 @@ class TestExtractKnownTerm:
 
     def test_ignores_falsy_candidates(self):
         assert extract_known_term("fantasy books", ["", None, "Fantasy"]) == "Fantasy"
+
+    def test_fuzzy_matches_spacing_variant_of_hyphenated_genre(self):
+        # The actual reported bug: "non fiction" (space) vs the catalogue's
+        # "Non-Fiction" (hyphen) — a formatting difference, not a real typo.
+        result = extract_known_term(
+            "books about non fiction published after 2007",
+            ["Non-Fiction", "Fantasy"],
+        )
+        assert result == "Non-Fiction"
+
+    def test_fuzzy_matches_exact_after_normalizing_hyphen(self):
+        result = extract_known_term("classic-fiction books", ["Classic Fiction"])
+        assert result == "Classic Fiction"
+
+    def test_fuzzy_match_does_not_fire_on_unrelated_text(self):
+        assert (
+            extract_known_term("tell me about Dune", ["Fantasy", "Non-Fiction"]) is None
+        )
+
+    def test_fuzzy_match_does_not_fire_on_abbreviation(self):
+        # True abbreviations ("sci-fi" for "Science Fiction") need real-world
+        # knowledge to resolve, not string similarity — left to the AI
+        # planner or plain semantic search, not this fuzzy fallback.
+        assert (
+            extract_known_term("show me your sci-fi books", ["Science Fiction"]) is None
+        )
+
+    def test_exact_match_preferred_over_fuzzy(self):
+        # Exact substring matching runs first; fuzzy is only a fallback.
+        result = extract_known_term("fantasy books please", ["Fantasy", "Non-Fiction"])
+        assert result == "Fantasy"
 
 
 class TestBuildFilterSpec:

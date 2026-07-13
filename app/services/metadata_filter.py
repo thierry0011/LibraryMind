@@ -9,6 +9,7 @@ these (via `looks_like_metadata_query`) and supplies the catalogue data
 needed to resolve genre/author names (via `build_filter_spec`).
 """
 
+import difflib
 import re
 
 _ENUMERATION_CUES = (
@@ -75,6 +76,30 @@ def looks_like_metadata_query(question: str) -> bool:
     return parse_year_filter(question) is not None or has_enumeration_cue(question)
 
 
+_TEMPORAL_CUES = (
+    "published",
+    "came out",
+    "release",
+    "released",
+    "written in",
+    "written before",
+    "written after",
+    "year",
+)
+
+
+def has_temporal_cue(question: str) -> bool:
+    """Cheap check for whether a question is making a publication-date claim
+    at all, independent of whether parse_year_filter() can actually resolve
+    it. A digit year like "2007" always matches parse_year_filter directly,
+    so this only needs to catch phrasing parse_year_filter can't — spelled-
+    out numbers ("two thousand seven"), typos, unusual constructions — which
+    is exactly the signal that should escalate to the AI query planner
+    instead of silently falling through to plain semantic search."""
+    q = question.lower()
+    return any(cue in q for cue in _TEMPORAL_CUES)
+
+
 _VAGUE_FOLLOWUP_CUES = (
     "tell me more",
     "more about",
@@ -96,14 +121,58 @@ def looks_like_vague_followup(question: str) -> bool:
     return any(cue in q for cue in _VAGUE_FOLLOWUP_CUES)
 
 
+def _normalize_for_fuzzy_match(text: str) -> str:
+    """Collapse whitespace/hyphens so "non fiction" and "Non-Fiction" compare
+    equal — a formatting difference, not a language-understanding problem,
+    so it doesn't need an AI call to resolve."""
+    return re.sub(r"[\s\-]+", "", text.lower())
+
+
+_FUZZY_MATCH_CUTOFF = 0.8
+_FUZZY_MIN_NGRAM_LENGTH = 4
+
+
+def _fuzzy_extract_known_term(question: str, candidates) -> str | None:
+    """Catch near-misses (spacing/hyphenation/minor typos) that an exact
+    substring check would silently drop, e.g. "non fiction" for the
+    catalogue value "Non-Fiction". Deliberately conservative (high cutoff,
+    normalized-form comparison) so it never turns a genuinely different word
+    into a false match — true abbreviations/synonyms ("sci-fi") still fall
+    outside it and are left to the AI query planner or plain semantic
+    search, since resolving those needs real-world knowledge, not just
+    string similarity."""
+    normalized_lookup = {_normalize_for_fuzzy_match(c): c for c in candidates if c}
+    if not normalized_lookup:
+        return None
+
+    words = question.lower().split()
+    ngrams = set()
+    for n in (1, 2, 3):
+        for i in range(len(words) - n + 1):
+            ngrams.add(" ".join(words[i : i + n]))
+
+    for ngram in ngrams:
+        normalized_ngram = _normalize_for_fuzzy_match(ngram)
+        if len(normalized_ngram) < _FUZZY_MIN_NGRAM_LENGTH:
+            continue
+        matches = difflib.get_close_matches(
+            normalized_ngram, normalized_lookup.keys(), n=1, cutoff=_FUZZY_MATCH_CUTOFF
+        )
+        if matches:
+            return normalized_lookup[matches[0]]
+    return None
+
+
 def extract_known_term(question: str, candidates) -> str | None:
-    """Return the longest known catalogue value (genre/author) mentioned in the
-    question, so we only match real values rather than guessing from keywords."""
+    """Return the known catalogue value (genre/author) mentioned in the
+    question, so we only match real values rather than guessing from
+    keywords. Tries an exact substring match first; if that finds nothing,
+    falls back to a conservative fuzzy match for formatting near-misses."""
     q = question.lower()
     for term in sorted((c for c in candidates if c), key=len, reverse=True):
         if term.lower() in q:
             return term
-    return None
+    return _fuzzy_extract_known_term(question, candidates)
 
 
 def build_filter_spec(question: str, all_books: list) -> dict:
