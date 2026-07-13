@@ -100,8 +100,6 @@ class TestHasHardSignal:
 
     def test_false_for_structured_english_question(self):
         assert (
-            has_hard_signal(
-                "do you have any non fiction books published after 2007"
-            )
+            has_hard_signal("do you have any non fiction books published after 2007")
             is False
         )

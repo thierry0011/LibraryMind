@@ -34,7 +34,7 @@ _SYSTEM_PROMPT_TEMPLATE = (
     '"value": integer, "value2": integer (value2 only when operator is "between")}},\n'
     '  "semantic_query": string or null — a concise English description of any '
     "remaining thematic intent. Translate to English if the question is in "
-    "another language. For \"books similar to X\" style requests, describe "
+    'another language. For "books similar to X" style requests, describe '
     "what X is actually about rather than just repeating its title.\n"
     "}}\n"
     "Return ONLY the JSON object — no explanation, no markdown fences. "
@@ -48,7 +48,9 @@ def _build_system_prompt(known_genres) -> str:
     return _SYSTEM_PROMPT_TEMPLATE.format(genres=genre_list)
 
 
-def plan_query(provider, rate_limiter, cache, question: str, known_genres) -> dict | None:
+def plan_query(
+    provider, rate_limiter, cache, question: str, known_genres
+) -> dict | None:
     """Ask the AI to turn `question` into a structured query plan. Returns
     the raw parsed dict, or None if the call fails or the response isn't
     valid JSON — callers must treat None as "fall back to plain semantic
@@ -63,7 +65,9 @@ def plan_query(provider, rate_limiter, cache, question: str, known_genres) -> di
 
     rate_limiter.acquire()
     try:
-        response = provider.generate(prompt=prompt, system=system_prompt, temperature=0.0)
+        response = provider.generate(
+            prompt=prompt, system=system_prompt, temperature=0.0
+        )
     except Exception as e:
         rate_limiter.release()
         logger.warning(

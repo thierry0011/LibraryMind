@@ -45,7 +45,10 @@ class CircuitBreaker:
     def record_failure(self):
         with self._lock:
             self._failure_count += 1
-            if self._state == _HALF_OPEN or self._failure_count >= self.failure_threshold:
+            if (
+                self._state == _HALF_OPEN
+                or self._failure_count >= self.failure_threshold
+            ):
                 self._state = _OPEN
                 self._opened_at = time.monotonic()
 

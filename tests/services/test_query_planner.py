@@ -31,13 +31,17 @@ class TestPlanQuerySuccess:
             '{"title": null, "author": null, "genre": "Non-Fiction", '
             '"year_filter": {"operator": ">", "value": 2007}, "semantic_query": null}'
         )
-        result = plan_query(provider, rate_limiter, cache, "some question", _KNOWN_GENRES)
+        result = plan_query(
+            provider, rate_limiter, cache, "some question", _KNOWN_GENRES
+        )
         assert result["genre"] == "Non-Fiction"
 
     def test_strips_markdown_fences(self, deps):
         provider, rate_limiter, cache = deps
         provider.generate.return_value = '```json\n{"genre": "Fantasy"}\n```'
-        result = plan_query(provider, rate_limiter, cache, "some question", _KNOWN_GENRES)
+        result = plan_query(
+            provider, rate_limiter, cache, "some question", _KNOWN_GENRES
+        )
         assert result["genre"] == "Fantasy"
 
     def test_caches_the_result(self, deps):
@@ -75,7 +79,9 @@ class TestPlanQuerySuccess:
     def test_question_is_wrapped_in_tags(self, deps):
         provider, rate_limiter, cache = deps
         provider.generate.return_value = '{"genre": null}'
-        plan_query(provider, rate_limiter, cache, "UNIQUE_QUESTION_MARKER", _KNOWN_GENRES)
+        plan_query(
+            provider, rate_limiter, cache, "UNIQUE_QUESTION_MARKER", _KNOWN_GENRES
+        )
         prompt = provider.generate.call_args.kwargs["prompt"]
         assert "<question>UNIQUE_QUESTION_MARKER</question>" == prompt
 
@@ -84,7 +90,9 @@ class TestPlanQueryCacheHit:
     def test_returns_cached_value_without_calling_provider(self, deps):
         provider, rate_limiter, cache = deps
         cache.get.return_value = {"genre": "Fantasy"}
-        result = plan_query(provider, rate_limiter, cache, "some question", _KNOWN_GENRES)
+        result = plan_query(
+            provider, rate_limiter, cache, "some question", _KNOWN_GENRES
+        )
         assert result == {"genre": "Fantasy"}
         provider.generate.assert_not_called()
 
@@ -99,7 +107,9 @@ class TestPlanQueryFailureFallback:
     def test_returns_none_on_provider_exception(self, deps):
         provider, rate_limiter, cache = deps
         provider.generate.side_effect = Exception("all providers failed")
-        result = plan_query(provider, rate_limiter, cache, "some question", _KNOWN_GENRES)
+        result = plan_query(
+            provider, rate_limiter, cache, "some question", _KNOWN_GENRES
+        )
         assert result is None
 
     def test_releases_rate_limit_token_on_provider_exception(self, deps):
@@ -111,13 +121,17 @@ class TestPlanQueryFailureFallback:
     def test_returns_none_on_malformed_json(self, deps):
         provider, rate_limiter, cache = deps
         provider.generate.return_value = "not valid json at all"
-        result = plan_query(provider, rate_limiter, cache, "some question", _KNOWN_GENRES)
+        result = plan_query(
+            provider, rate_limiter, cache, "some question", _KNOWN_GENRES
+        )
         assert result is None
 
     def test_returns_none_on_non_object_json(self, deps):
         provider, rate_limiter, cache = deps
         provider.generate.return_value = '["just", "a", "list"]'
-        result = plan_query(provider, rate_limiter, cache, "some question", _KNOWN_GENRES)
+        result = plan_query(
+            provider, rate_limiter, cache, "some question", _KNOWN_GENRES
+        )
         assert result is None
 
     def test_does_not_cache_a_failed_call(self, deps):
@@ -131,5 +145,7 @@ class TestPlanQueryFailureFallback:
         provider.generate.return_value = "garbage{{{"
         # Should not raise — must degrade to None for the caller to fall
         # back to plain semantic search.
-        result = plan_query(provider, rate_limiter, cache, "some question", _KNOWN_GENRES)
+        result = plan_query(
+            provider, rate_limiter, cache, "some question", _KNOWN_GENRES
+        )
         assert result is None

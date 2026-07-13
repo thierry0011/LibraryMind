@@ -11,15 +11,21 @@ _KNOWN_AUTHORS = {"Frank Herbert", "Yuval Noah Harari"}
 
 class TestValidateGenre:
     def test_valid_genre_is_kept(self):
-        plan = validate_query_plan({"genre": "Non-Fiction"}, _KNOWN_GENRES, _KNOWN_AUTHORS)
+        plan = validate_query_plan(
+            {"genre": "Non-Fiction"}, _KNOWN_GENRES, _KNOWN_AUTHORS
+        )
         assert plan["filters"]["genre"] == "Non-Fiction"
 
     def test_case_insensitive_genre_resolves_to_canonical_form(self):
-        plan = validate_query_plan({"genre": "non-fiction"}, _KNOWN_GENRES, _KNOWN_AUTHORS)
+        plan = validate_query_plan(
+            {"genre": "non-fiction"}, _KNOWN_GENRES, _KNOWN_AUTHORS
+        )
         assert plan["filters"]["genre"] == "Non-Fiction"
 
     def test_hallucinated_genre_is_rejected(self):
-        plan = validate_query_plan({"genre": "Adventure"}, _KNOWN_GENRES, _KNOWN_AUTHORS)
+        plan = validate_query_plan(
+            {"genre": "Adventure"}, _KNOWN_GENRES, _KNOWN_AUTHORS
+        )
         assert plan["filters"]["genre"] is None
 
     def test_missing_genre_is_none(self):
@@ -141,7 +147,9 @@ class TestValidateTitleAndSemanticQuery:
         assert plan["semantic_query"] == "books about habit formation"
 
     def test_non_string_semantic_query_is_none(self):
-        plan = validate_query_plan({"semantic_query": 42}, _KNOWN_GENRES, _KNOWN_AUTHORS)
+        plan = validate_query_plan(
+            {"semantic_query": 42}, _KNOWN_GENRES, _KNOWN_AUTHORS
+        )
         assert plan["semantic_query"] is None
 
 
