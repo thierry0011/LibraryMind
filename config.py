@@ -13,6 +13,7 @@ class settings:
     MODEL = "gpt-3.5-turbo"
     MODEL_CLAUDE = "claude-2"
     EMBEDDING_MODEL = "text-embedding-3-small"
+    EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", 512))
 
     MAX_TOKENS = 4096
     TEMPERATURE = 0.7
@@ -26,7 +27,14 @@ class settings:
     RAG_TOP_K = int(os.getenv("RAG_TOP_K", 5))
     MAX_CONVERSATION_HISTORY = int(os.getenv("MAX_CONVERSATION_HISTORY", 10))
 
-    RATE_LIMIT_PER_MINUTE = os.getenv("RATE_LIMIT_PER_MINUTE", 60)
+    RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", 60))
+
+    CIRCUIT_BREAKER_FAILURE_THRESHOLD = int(
+        os.getenv("CIRCUIT_BREAKER_FAILURE_THRESHOLD", 3)
+    )
+    CIRCUIT_BREAKER_RECOVERY_TIMEOUT = float(
+        os.getenv("CIRCUIT_BREAKER_RECOVERY_TIMEOUT", 30)
+    )
 
     if not AMALIAI_API_KEY or not AMALIAI_BASE_URL:
         raise ValueError(

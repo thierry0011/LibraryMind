@@ -12,7 +12,11 @@ import pytest
 
 sys.modules.setdefault("chromadb", MagicMock())
 
-from services.chatbot_service import ChatbotService, _SYSTEM_PROMPT  # noqa: E402
+from services.chatbot_service import (  # noqa: E402
+    ChatbotService,
+    _REWRITE_SYSTEM_PROMPT,
+    _SYSTEM_PROMPT,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -20,8 +24,11 @@ from services.chatbot_service import ChatbotService, _SYSTEM_PROMPT  # noqa: E40
 # ---------------------------------------------------------------------------
 
 
-def _rag_result(answer="Some book context.", sources=None):
-    return {"answer": answer, "sources": sources or [], "cached": False}
+def _rag_result(answer="Some book context.", sources=None, books=None):
+    result = {"answer": answer, "sources": sources or [], "cached": False}
+    if books is not None:
+        result["books"] = books
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -35,7 +42,7 @@ def svc():
     with (
         patch("services.chatbot_service.RAGEngine"),
         patch("services.chatbot_service.ResilientAIService"),
-        patch("services.chatbot_service.RateLimiter"),
+        patch("services.chatbot_service.get_rate_limiter"),
     ):
         service = ChatbotService()
 
@@ -59,7 +66,7 @@ class TestChatbotServiceInit:
         with (
             patch("services.chatbot_service.RAGEngine"),
             patch("services.chatbot_service.ResilientAIService"),
-            patch("services.chatbot_service.RateLimiter"),
+            patch("services.chatbot_service.get_rate_limiter"),
             patch("services.chatbot_service.settings") as mock_settings,
         ):
             mock_settings.MAX_CONVERSATION_HISTORY = 7
@@ -70,7 +77,7 @@ class TestChatbotServiceInit:
         with (
             patch("services.chatbot_service.RAGEngine") as MockRAG,
             patch("services.chatbot_service.ResilientAIService"),
-            patch("services.chatbot_service.RateLimiter"),
+            patch("services.chatbot_service.get_rate_limiter"),
             patch("services.chatbot_service.settings") as ms,
         ):
             ms.MAX_CONVERSATION_HISTORY = 10
@@ -81,7 +88,7 @@ class TestChatbotServiceInit:
         with (
             patch("services.chatbot_service.RAGEngine"),
             patch("services.chatbot_service.ResilientAIService") as MockProvider,
-            patch("services.chatbot_service.RateLimiter"),
+            patch("services.chatbot_service.get_rate_limiter"),
             patch("services.chatbot_service.settings") as ms,
         ):
             ms.MAX_CONVERSATION_HISTORY = 10
@@ -164,7 +171,9 @@ class TestChatRAGIntegration:
         svc.rag_engine.ask.return_value = _rag_result()
         svc.provider.generate.return_value = "reply"
         svc.chat("id1", "Tell me about Dune.")
-        svc.rag_engine.ask.assert_called_once_with("Tell me about Dune.")
+        svc.rag_engine.ask.assert_called_once_with(
+            "Tell me about Dune.", previous_books=None
+        )
 
     def test_rag_engine_called_exactly_once_per_chat(self, svc):
         svc.rag_engine.ask.return_value = _rag_result()
@@ -239,6 +248,136 @@ class TestChatPromptConstruction:
 # ---------------------------------------------------------------------------
 # TestChatHistoryManagement
 # ---------------------------------------------------------------------------
+
+
+class TestChatLastBooksTracking:
+    def test_starts_empty(self, svc):
+        assert svc.last_books == {}
+
+    def test_first_turn_stores_books_from_rag_result(self, svc):
+        book = {"metadata": {"title": "Dune"}}
+        svc.rag_engine.ask.return_value = _rag_result(books=[book])
+        svc.provider.generate.return_value = "reply"
+        svc.chat("id1", "Tell me about Dune.")
+        assert svc.last_books["id1"] == [book]
+
+    def test_no_books_key_leaves_last_books_untouched(self, svc):
+        book = {"metadata": {"title": "Dune"}}
+        svc.last_books["id1"] = [book]
+        svc.rag_engine.ask.return_value = _rag_result()  # no "books" key at all
+        svc.provider.generate.return_value = "reply"
+        svc.chat("id1", "Off-topic question.")
+        assert svc.last_books["id1"] == [book]
+
+    def test_empty_books_list_leaves_last_books_untouched(self, svc):
+        book = {"metadata": {"title": "Dune"}}
+        svc.last_books["id1"] = [book]
+        svc.rag_engine.ask.return_value = _rag_result(books=[])
+        svc.provider.generate.return_value = "reply"
+        svc.chat("id1", "Off-topic question.")
+        assert svc.last_books["id1"] == [book]
+
+    def test_new_books_overwrite_previous_ones(self, svc):
+        old_book = {"metadata": {"title": "Dune"}}
+        new_book = {"metadata": {"title": "Foundation"}}
+        svc.last_books["id1"] = [old_book]
+        svc.rag_engine.ask.return_value = _rag_result(books=[new_book])
+        svc.provider.generate.return_value = "reply"
+        svc.chat("id1", "Tell me about Foundation.")
+        assert svc.last_books["id1"] == [new_book]
+
+    def test_second_turn_passes_previous_books_to_rag_engine(self, svc):
+        book = {"metadata": {"title": "Dune"}}
+        svc.rag_engine.ask.return_value = _rag_result(books=[book])
+        svc.provider.generate.return_value = "reply"
+        svc.chat("id1", "Tell me about Dune.")
+
+        svc.rag_engine.ask.return_value = _rag_result()
+        # Second turn has history, so _rewrite_query fires before rag_engine.ask:
+        # first generate() call is the rewrite, second is the conversational wrap.
+        svc.provider.generate.side_effect = ["What is Dune about?", "reply"]
+        svc.chat("id1", "tell me more about this book")
+
+        svc.rag_engine.ask.assert_called_with(
+            "What is Dune about?", previous_books=[book]
+        )
+
+    def test_first_turn_passes_none_as_previous_books(self, svc):
+        svc.rag_engine.ask.return_value = _rag_result()
+        svc.provider.generate.return_value = "reply"
+        svc.chat("id1", "hello")
+        svc.rag_engine.ask.assert_called_once_with("hello", previous_books=None)
+
+    def test_separate_conversations_have_independent_last_books(self, svc):
+        book_a = {"metadata": {"title": "Dune"}}
+        svc.rag_engine.ask.return_value = _rag_result(books=[book_a])
+        svc.provider.generate.return_value = "reply"
+        svc.chat("conv-A", "Tell me about Dune.")
+
+        svc.rag_engine.ask.return_value = _rag_result()
+        svc.chat("conv-B", "tell me more about this book")
+
+        svc.rag_engine.ask.assert_called_with(
+            "tell me more about this book", previous_books=None
+        )
+
+
+class TestRewriteQuery:
+    def test_no_history_returns_message_unchanged(self, svc):
+        assert svc._rewrite_query([], "Tell me about Dune.") == "Tell me about Dune."
+
+    def test_no_history_does_not_call_provider(self, svc):
+        svc._rewrite_query([], "Tell me about Dune.")
+        svc.provider.generate.assert_not_called()
+
+    def test_with_history_calls_provider_with_rewrite_system_prompt(self, svc):
+        history = [
+            {"role": "user", "content": "Tell me about Dune."},
+            {"role": "assistant", "content": "Dune is by Frank Herbert."},
+        ]
+        svc.provider.generate.return_value = "What is Dune about?"
+        svc._rewrite_query(history, "what's it about")
+        assert (
+            svc.provider.generate.call_args.kwargs["system"] == _REWRITE_SYSTEM_PROMPT
+        )
+
+    def test_with_history_prompt_contains_history_and_message(self, svc):
+        history = [{"role": "user", "content": "HISTORY_MARKER"}]
+        svc.provider.generate.return_value = "rewritten"
+        svc._rewrite_query(history, "LATEST_MARKER")
+        prompt = svc.provider.generate.call_args.kwargs["prompt"]
+        assert "HISTORY_MARKER" in prompt
+        assert "LATEST_MARKER" in prompt
+
+    def test_with_history_uses_deterministic_temperature(self, svc):
+        history = [{"role": "user", "content": "hi"}]
+        svc.provider.generate.return_value = "rewritten"
+        svc._rewrite_query(history, "what's it about")
+        assert svc.provider.generate.call_args.kwargs["temperature"] == 0.0
+
+    def test_returns_rewritten_query(self, svc):
+        history = [{"role": "user", "content": "Tell me about Dune."}]
+        svc.provider.generate.return_value = "  What is Dune about?  "
+        result = svc._rewrite_query(history, "what's it about")
+        assert result == "What is Dune about?"
+
+    def test_falls_back_to_message_on_provider_failure(self, svc):
+        history = [{"role": "user", "content": "Tell me about Dune."}]
+        svc.provider.generate.side_effect = Exception("all providers failed")
+        result = svc._rewrite_query(history, "what's it about")
+        assert result == "what's it about"
+
+    def test_releases_rate_limit_token_on_provider_failure(self, svc):
+        history = [{"role": "user", "content": "Tell me about Dune."}]
+        svc.provider.generate.side_effect = Exception("all providers failed")
+        svc._rewrite_query(history, "what's it about")
+        svc.rate_limiter.release.assert_called_once()
+
+    def test_blank_rewrite_falls_back_to_message(self, svc):
+        history = [{"role": "user", "content": "Tell me about Dune."}]
+        svc.provider.generate.return_value = "   "
+        result = svc._rewrite_query(history, "what's it about")
+        assert result == "what's it about"
 
 
 class TestChatHistoryManagement:

@@ -6,3 +6,4 @@ chromadb>=0.5
 redis==5.0.3
 tenacity==8.2.3
 tiktoken
+structlog>=24.0.0

@@ -5,6 +5,8 @@
     "author": "Frank Herbert",
     "year": 1965,
     "genre": "Science Fiction",
+    "isbn": "9780000000019",
+    "shelf_number": "SF-01",
     "description": "Set in the distant future amidst a feudal interstellar society, Dune tells the story of young Paul Atreides whose family accepts stewardship of the desert planet Arrakis. Arrakis is the only source of the most valuable substance in the universe, a spice called melange that extends human life and enables interstellar travel. When the Atreides family is betrayed, Paul must journey into the desert and ally with the native Fremen people to reclaim what is rightfully his. The novel explores themes of politics, religion, ecology, and human potential against the backdrop of a vast desert planet filled with giant sandworms and scarce water."
   },
   {
@@ -13,6 +15,8 @@
     "author": "Andy Weir",
     "year": 2011,
     "genre": "Science Fiction",
+    "isbn": "9780000000026",
+    "shelf_number": "SF-02",
     "description": "Astronaut Mark Watney is stranded alone on Mars after his crew evacuates during a fierce storm, presuming him dead. With limited supplies and no way to contact Earth, Watney must use his ingenuity and botany skills to survive on a planet that has never supported human life. He grows food in the hostile Martian soil, repairs damaged equipment, and devises creative solutions to seemingly impossible problems while NASA scrambles to mount a rescue mission. This gripping tale of survival combines hard science with dark humor and celebrates human resilience, problem-solving, and the will to survive against all odds."
   },
   {
@@ -21,6 +25,8 @@
     "author": "Orson Scott Card",
     "year": 1985,
     "genre": "Science Fiction",
+    "isbn": "9780000000033",
+    "shelf_number": "SF-03",
     "description": "In a future where humanity has survived two invasions by an alien insectoid race called the Formics, Earth's military seeks the next great commander among gifted children. Andrew Ender Wiggin is recruited to Battle School, an orbital station where child soldiers train in zero-gravity combat simulations. Ender quickly proves himself brilliantly strategic, navigating social isolation, intense psychological pressure, and escalating challenges designed to push him to his limits. The novel is a profound exploration of leadership, empathy, moral responsibility, and the cost of preparing children for war."
   },
   {
@@ -29,6 +35,8 @@
     "author": "Isaac Asimov",
     "year": 1951,
     "genre": "Science Fiction",
+    "isbn": "9780000000040",
+    "shelf_number": "SF-04",
     "description": "Mathematician Hari Seldon has developed psychohistory, a science that predicts the fall of the Galactic Empire and thirty thousand years of barbarism to follow. To shorten the dark age to a single millennium, Seldon establishes the Foundation on a remote planet at the edge of the galaxy. The story follows successive generations of Foundation members as they navigate crises predicted by Seldon, using science, trade, and diplomacy to guide humanity through turbulent centuries. Asimov's epic work examines the forces of history, the fragility of civilization, and whether mathematics can predict and shape the destiny of entire civilizations."
   },
   {
@@ -37,6 +45,8 @@
     "author": "Jane Austen",
     "year": 1813,
     "genre": "Classic Fiction",
+    "isbn": "9780000000057",
+    "shelf_number": "CF-01",
     "description": "Set in rural England at the turn of the nineteenth century, this beloved novel follows the Bennet family and their five daughters navigating society's rigid expectations around marriage and social class. When the wealthy and seemingly arrogant Mr. Darcy arrives in the neighbourhood, his interactions with the spirited and independent Elizabeth Bennet spark a complex romance built on misunderstanding, pride, and prejudice. Austen's sharp wit and keen social commentary illuminate the limited choices available to women and the absurdities of a society that valued wealth and status above character. The novel remains a timeless exploration of love, self-discovery, and the importance of judging people fairly."
   },
   {
@@ -45,6 +55,8 @@
     "author": "Charlotte Brontë",
     "year": 1847,
     "genre": "Classic Fiction",
+    "isbn": "9780000000064",
+    "shelf_number": "CF-02",
     "description": "Orphaned Jane Eyre grows up enduring hardship and cruelty before finding a position as a governess at Thornfield Hall, the mysterious estate of the brooding Edward Rochester. As Jane and Rochester grow close, dark secrets hidden within the manor's walls threaten to destroy any chance of happiness. A passionate story of love against the backdrop of Victorian England, Jane Eyre champions the dignity and moral strength of an independent woman who refuses to compromise her principles. The novel explores themes of social class, religion, morality, and the struggle for self-respect in a society that undervalues women of modest means."
   },
   {
@@ -53,6 +65,8 @@
     "author": "Emily Brontë",
     "year": 1847,
     "genre": "Classic Fiction",
+    "isbn": "9780000000071",
+    "shelf_number": "CF-03",
     "description": "On the wild and windswept Yorkshire moors, the brooding foundling Heathcliff grows up alongside Catherine Earnshaw at Wuthering Heights. Their intense bond transforms into a passionate and destructive love that neither social class nor death can fully extinguish. When Catherine chooses to marry the wealthy Edgar Linton instead, Heathcliff embarks on a decades-long quest for revenge that consumes two generations of both families. Emily Brontë's only novel is a dark and gothic masterpiece that examines obsession, cruelty, social mobility, and the consuming power of love set against the harsh beauty of the English countryside."
   },
   {
@@ -61,6 +75,8 @@
     "author": "Patrick Rothfuss",
     "year": 2007,
     "genre": "Fantasy",
+    "isbn": "9780000000088",
+    "shelf_number": "FAN-01",
     "description": "Told in the first person by the legendary wizard Kvothe, this epic fantasy follows his journey from a gifted child of travelling performers to a renowned and feared arcanist. Kvothe recounts his years of poverty on the streets of a great city, his studies at the University where magic is taught as a science, and his obsessive search for the mythical Chandrian who murdered his family. Rich with detailed world-building, intricate magic systems, and lyrical prose, the novel explores the nature of legend versus reality, the power of music, and the gap between who we are and who the world believes us to be."
   },
   {
@@ -69,6 +85,8 @@
     "author": "Brandon Sanderson",
     "year": 2010,
     "genre": "Fantasy",
+    "isbn": "9780000000095",
+    "shelf_number": "FAN-02",
     "description": "The first volume of the Stormlight Archive epic follows three characters on the storm-battered world of Roshar. Kaladin, a former soldier, struggles to protect his fellow slaves while mysterious powers begin to awaken within him. Shallan, a young scholar, seeks to apprentice herself to a heretic to save her family from financial ruin. Dalinar, a highprince haunted by ancient visions, questions the meaningless war he is fighting. Sanderson's intricate magic system, meticulous world-building, and exploration of depression, leadership, and honour make this one of the most ambitious fantasy novels of the modern era."
   },
   {
@@ -77,6 +95,8 @@
     "author": "Ursula K. Le Guin",
     "year": 1968,
     "genre": "Fantasy",
+    "isbn": "9780000000101",
+    "shelf_number": "FAN-03",
     "description": "On the archipelago world of Earthsea, a young goatherd named Ged discovers he has extraordinary magical talent and wins a place at the school for wizards on the island of Roke. Proud and impatient, Ged recklessly unleashes a terrible shadow creature from the realm of the dead and must sail to the farthest edges of Earthsea to confront the darkness he has released. Le Guin's deceptively simple prose carries profound themes about identity, ego, mortality, and the balance between light and dark. The novel redefined fantasy literature by centering a protagonist of colour and exploring the interior journey of self-knowledge as the true heroic quest."
   },
   {
@@ -85,6 +105,8 @@
     "author": "Stieg Larsson",
     "year": 2005,
     "genre": "Thriller",
+    "isbn": "9780000000118",
+    "shelf_number": "THR-01",
     "description": "Disgraced financial journalist Mikael Blomkvist is hired by an elderly industrialist to investigate the decades-old disappearance of his niece from a wealthy and deeply dysfunctional Swedish family. Blomkvist partners with Lisbeth Salander, a brilliant and antisocial computer hacker with a photographic memory and a dark personal history. Together they uncover a disturbing trail of financial corruption, family secrets, and serial violence spanning generations. This gripping Scandinavian thriller weaves together corporate crime and personal trauma into a dark and compulsive narrative about violence against women, institutional failure, and the search for truth in a world built on lies."
   },
   {
@@ -93,6 +115,8 @@
     "author": "Gillian Flynn",
     "year": 2012,
     "genre": "Thriller",
+    "isbn": "9780000000125",
+    "shelf_number": "THR-02",
     "description": "On the morning of their fifth wedding anniversary, Amy Dunne disappears and her husband Nick becomes the prime suspect. Told in alternating perspectives between Nick's present-day account and Amy's diary entries leading up to her disappearance, the novel methodically dismantles the polished facade of a seemingly perfect marriage. Flynn's razor-sharp prose and deeply unreliable narrators create a relentlessly twisting psychological puzzle about media manipulation, performance of identity, and the dangerous games people play within intimate relationships. A darkly compelling examination of marriage, perception, and the stories we tell ourselves and others."
   },
   {
@@ -101,6 +125,8 @@
     "author": "Alex Michaelides",
     "year": 2019,
     "genre": "Thriller",
+    "isbn": "9780000000132",
+    "shelf_number": "THR-03",
     "description": "Alicia Berenson, a famous painter, shoots her husband five times and then never speaks another word. Incarcerated in a secure forensic unit, she becomes an object of public fascination. Theo Faber, a criminal psychotherapist, is obsessed with uncovering her motive and manoeuvres himself into a position to treat her. As Theo digs deeper into Alicia's past and her relationships with those around her, the mystery becomes increasingly complex and his own motives come into question. This psychological thriller builds to a stunning twist that reframes everything that came before it, exploring themes of trauma, obsession, and the murky boundaries of the therapist-patient relationship."
   },
   {
@@ -109,6 +135,8 @@
     "author": "Yuval Noah Harari",
     "year": 2011,
     "genre": "Non-Fiction",
+    "isbn": "9780000000149",
+    "shelf_number": "NF-01",
     "description": "Tracing the history of humankind from the Stone Age to the twenty-first century, Harari asks bold questions about what made Homo sapiens the dominant species on Earth. He argues that the key was our unique ability to believe in shared fictions such as gods, nations, money, and human rights, which allowed large numbers of strangers to cooperate. The book surveys the Agricultural Revolution, the unification of humankind through empire and trade, the Scientific Revolution, and the future of our species in the age of biotechnology and artificial intelligence. Provocative and sweeping, Sapiens challenges readers to reconsider the stories they tell about progress, happiness, and what it means to be human."
   },
   {
@@ -117,6 +145,8 @@
     "author": "Tara Westover",
     "year": 2018,
     "genre": "Non-Fiction",
+    "isbn": "9780000000156",
+    "shelf_number": "NF-02",
     "description": "Tara Westover grew up in rural Idaho in a survivalist family that distrusted the government and formal education. She did not set foot in a classroom until the age of seventeen, yet went on to earn a PhD from Cambridge University. This memoir traces her remarkable journey from a childhood defined by physical danger, family violence, and deliberate ignorance to the liberating and destabilising world of education and self-discovery. Westover writes with unflinching honesty about the painful cost of leaving behind a family and belief system, and the difficulty of constructing an identity when the story you were told about yourself turns out to be a lie."
   },
   {
@@ -125,6 +155,8 @@
     "author": "Rebecca Skloot",
     "year": 2010,
     "genre": "Non-Fiction",
+    "isbn": "9780000000163",
+    "shelf_number": "NF-03",
     "description": "In 1951, cancer cells were taken from Henrietta Lacks, a Black woman being treated at Johns Hopkins Hospital, without her knowledge or consent. Those cells, known as HeLa cells, became one of the most important tools in medicine and have been used in research leading to the polio vaccine, cancer treatments, and countless other advances. Skloot weaves together the story of Henrietta's life, her family's struggle to understand what happened to her cells, and the ethical questions surrounding consent, race, and profit in medical research. A powerful narrative about the intersection of science, ethics, and human dignity that changed how the world thinks about medical consent."
   },
   {
@@ -133,6 +165,8 @@
     "author": "Paulo Coelho",
     "year": 1988,
     "genre": "Literary Fiction",
+    "isbn": "9780000000170",
+    "shelf_number": "LIT-01",
     "description": "A young Andalusian shepherd named Santiago dreams of treasure buried near the Egyptian pyramids and sets out on a journey across continents to find it. Along the way he encounters a mysterious king, an Englishman seeking an alchemist, a crystal merchant, and a woman of the desert, each teaching him something about following his Personal Legend. Coelho's short philosophical novel has become one of the best-selling books in history, offering a parable about listening to your heart, recognising opportunity, and the spiritual journey of self-discovery. Written in simple but resonant prose, it invites readers to reflect on their own dreams and the omens the universe places in our path."
   },
   {
@@ -141,6 +175,8 @@
     "author": "Khaled Hosseini",
     "year": 2003,
     "genre": "Literary Fiction",
+    "isbn": "9780000000187",
+    "shelf_number": "LIT-02",
     "description": "Set against the backdrop of Afghanistan from the final days of the monarchy through the Soviet invasion, the rule of the Taliban, and beyond, this novel follows Amir, the privileged son of a Kabul merchant, and his loyal friend Hassan, the son of a servant. A single act of cowardice on a winter afternoon in 1975 will haunt Amir for decades and set him on a path of guilt, redemption, and return. Hosseini's debut novel is a searing portrayal of friendship, betrayal, sacrifice, and the devastating human cost of Afghanistan's turbulent history, told through an intimate and emotionally devastating narrative voice."
   },
   {
@@ -149,6 +185,8 @@
     "author": "Gabriel García Márquez",
     "year": 1967,
     "genre": "Literary Fiction",
+    "isbn": "9780000000194",
+    "shelf_number": "LIT-03",
     "description": "The founding patriarch José Arcadio Buendía establishes the town of Macondo in a remote Colombian jungle, and the novel follows seven generations of his family as the town grows, flourishes, and ultimately declines. Blending the mundane with the miraculous in the style of magical realism, García Márquez weaves together love, war, political upheaval, and the cyclical nature of history. Characters levitate, ghosts haunt the living, and it rains yellow flowers, yet these events are described with the matter-of-fact clarity of everyday life. A Nobel Prize-winning masterpiece that explores memory, fate, family, solitude, and the inexorable passage of time."
   },
   {
@@ -157,6 +195,8 @@
     "author": "Harper Lee",
     "year": 1960,
     "genre": "Classic Fiction",
+    "isbn": "9780000000200",
+    "shelf_number": "CF-04",
     "description": "Narrated by young Scout Finch, this landmark American novel is set in the fictional town of Maycomb, Alabama, during the 1930s. Scout's father, lawyer Atticus Finch, is appointed to defend Tom Robinson, a Black man falsely accused of raping a white woman, in a case that exposes the deep racial injustice and hypocrisy of the American South. Through Scout's innocent but perceptive eyes, the novel examines prejudice, moral courage, empathy, and the loss of innocence as she comes to understand the complexities and injustices of the adult world. A Pulitzer Prize winner and one of the most influential novels in American literature."
   },
   {
@@ -165,6 +205,8 @@
     "author": "Douglas Adams",
     "year": 1979,
     "genre": "Science Fiction",
+    "isbn": "9780000000217",
+    "shelf_number": "SF-05",
     "description": "Moments before Earth is demolished to make way for a hyperspace bypass, Arthur Dent is whisked off the planet by his friend Ford Prefect, who turns out to be a researcher for the titular intergalactic travel guide. Together they hitch a ride on a stolen spaceship with the president of the galaxy, a depressed robot named Marvin, and a woman who turns out to be the last surviving human. Adams's anarchic comic science fiction is a gleeful satire of bureaucracy, philosophy, and the absurdity of existence, built around the fundamental question of life, the universe, and everything, the answer to which turns out to be forty-two."
   },
   {
@@ -173,6 +215,8 @@
     "author": "Truman Capote",
     "year": 1966,
     "genre": "Non-Fiction",
+    "isbn": "9780000000224",
+    "shelf_number": "NF-04",
     "description": "On a November night in 1959, the Clutter family of Holcomb, Kansas, were murdered in their farmhouse by two ex-convicts, Perry Smith and Dick Hickock, who had been told there was a safe full of money on the property. Capote spent years in Kansas interviewing townspeople, investigators, and ultimately the killers themselves to reconstruct the crime and its aftermath in meticulous detail. Regarded as a founding work of the true crime genre and the literary nonfiction movement, the book reads with the narrative tension of a novel while raising profound questions about capital punishment, the American dream, and the forces that shape a killer's mind."
   },
   {
@@ -181,6 +225,8 @@
     "author": "Scott Lynch",
     "year": 2006,
     "genre": "Fantasy",
+    "isbn": "9780000000231",
+    "shelf_number": "FAN-04",
     "description": "In the corrupt and glittering city of Camorr, modelled on medieval Venice, Locke Lamora leads the Gentleman Bastards, a tight-knit gang of con artists who steal from the nobility with elaborate and daring schemes. When a mysterious and brutal criminal known as the Grey King begins murdering gang leaders and threatening everything Locke holds dear, the master thief must abandon his careful plans and fight for survival. Lynch's debut is a propulsive heist fantasy filled with intricate plotting, sharp dialogue, vivid world-building, and a richly drawn city that feels alive with history, danger, and opportunity."
   },
   {
@@ -189,6 +235,8 @@
     "author": "James Clear",
     "year": 2018,
     "genre": "Non-Fiction",
+    "isbn": "9780000000248",
+    "shelf_number": "NF-05",
     "description": "Drawing on research from biology, psychology, and neuroscience, Clear argues that real change comes not from dramatic transformations but from the aggregation of marginal gains through tiny daily habits. He presents a practical framework built on four laws of behaviour change: make it obvious, make it attractive, make it easy, and make it satisfying. Through compelling stories of athletes, artists, and business leaders, Clear demonstrates how small habits compound over time to produce remarkable results, and how understanding the mechanics of habit formation can help anyone redesign their daily routines to achieve their goals. A rigorous and highly actionable guide to building good habits and breaking bad ones."
   },
   {
@@ -197,6 +245,108 @@
     "author": "Daphne du Maurier",
     "year": 1938,
     "genre": "Classic Fiction",
+    "isbn": "9780000000255",
+    "shelf_number": "CF-05",
     "description": "A young and naive woman marries the wealthy widower Maxim de Winter and moves to his imposing Cornish estate, Manderley, only to find herself living in the shadow of his first wife Rebecca, who died under mysterious circumstances. The oppressive housekeeper Mrs. Danvers idolises the memory of her former mistress and seems determined to make the new Mrs. de Winter feel inadequate and unwelcome. As secrets about Rebecca's life and death slowly surface, the atmosphere of dread and psychological menace intensifies to a shattering climax. A gothic masterpiece of romantic suspense that explores obsession, jealousy, memory, and the dangerous power of idealising the dead."
+  },
+  {
+    "id": "book_026",
+    "title": "Brave New World",
+    "author": "Aldous Huxley",
+    "year": 1932,
+    "genre": "Science Fiction",
+    "isbn": "9780000000262",
+    "shelf_number": "SF-06",
+    "description": "In a future World State, humanity has traded freedom and individuality for stability and endless pleasure, engineering citizens before birth into rigid castes and pacifying them with the drug soma and consequence-free promiscuity. Bernard Marx, an Alpha who feels alienated from this frictionless utopia, travels to a reservation and brings back John, a young man raised outside the World State on Shakespeare and natural birth. John's collision with a society that has abolished suffering, art, religion, and love as we know them exposes the hollow cost of a civilization built on comfort and control. Huxley's prescient satire interrogates the price of happiness purchased through conformity, the seduction of painless pleasure, and what is lost when a society engineers away everything that makes life difficult and therefore meaningful."
+  },
+  {
+    "id": "book_027",
+    "title": "The Left Hand of Darkness",
+    "author": "Ursula K. Le Guin",
+    "year": 1969,
+    "genre": "Science Fiction",
+    "isbn": "9780000000279",
+    "shelf_number": "SF-07",
+    "description": "Genly Ai, an envoy from a coalition of human worlds, travels to the icebound planet of Gethen to persuade its nations to join a wider interstellar community, only to become entangled in the political intrigue of the kingdom of Karhide. Gethenians are ambisexual, taking on male or female characteristics only briefly each month, and Genly's inability to understand a society without fixed gender repeatedly undermines his mission until he is forced into a desperate trek across a killing glacier with the disgraced politician Estraven. Le Guin's landmark work of speculative anthropology uses an alien society to interrogate the assumptions embedded in gender, trust, and political loyalty, and remains one of the most influential thought experiments in the history of science fiction."
+  },
+  {
+    "id": "book_028",
+    "title": "Emma",
+    "author": "Jane Austen",
+    "year": 1815,
+    "genre": "Classic Fiction",
+    "isbn": "9780000000286",
+    "shelf_number": "CF-06",
+    "description": "Emma Woodhouse, handsome, clever, and rich, occupies herself matchmaking among the residents of the village of Highbury, convinced of her own perceptiveness even as her schemes repeatedly misfire. Her meddling in the romantic lives of her friend Harriet Smith and the modest farmer Robert Martin, and her prickly friendship with the sharp-tongued Mr. Knightley, gradually reveal how little Emma actually understands the hearts of those around her, including her own. Austen's comedy of manners is a masterclass in irony and free indirect narration, following a heroine whose confidence and self-deception invite the reader's affection and exasperation in equal measure as she slowly learns to see clearly."
+  },
+  {
+    "id": "book_029",
+    "title": "Great Expectations",
+    "author": "Charles Dickens",
+    "year": 1861,
+    "genre": "Classic Fiction",
+    "isbn": "9780000000293",
+    "shelf_number": "CF-07",
+    "description": "Pip, an orphan being raised by his blacksmith brother-in-law in the Kent marshes, is summoned to the decaying Satis House to keep company with the embittered Miss Havisham and her cold, beautiful ward Estella. When an anonymous benefactor grants Pip a fortune and the chance to become a gentleman in London, he abandons his humble origins and the loyal Joe Gargery, only to discover that the true source of his expectations is far darker and more entangled with his own past than he could have imagined. Dickens's sprawling bildungsroman traces Pip's moral education from snobbery and shame back toward humility and gratitude, weaving together convicts, inheritances, and unrequited love into a meditation on ambition, class, and the true measure of a gentleman."
+  },
+  {
+    "id": "book_030",
+    "title": "The Hobbit",
+    "author": "J.R.R. Tolkien",
+    "year": 1937,
+    "genre": "Fantasy",
+    "isbn": "9780000000309",
+    "shelf_number": "FAN-05",
+    "description": "Bilbo Baggins, a comfort-loving hobbit content with his quiet life in the Shire, is swept into an unexpected adventure when the wizard Gandalf and a company of thirteen dwarves led by Thorin Oakenshield arrive seeking a burglar to help reclaim their homeland and treasure from the dragon Smaug. Along the journey Bilbo faces trolls, goblins, giant spiders, and a riddle contest with a strange creature named Gollum that yields a plain gold ring of unsuspected power. Tolkien's warm, episodic adventure is both a children's fairy tale and the foundation of modern epic fantasy, tracing how an unlikely, reluctant hero discovers courage, resourcefulness, and a wider world beyond his own doorstep."
+  },
+  {
+    "id": "book_031",
+    "title": "Mistborn: The Final Empire",
+    "author": "Brandon Sanderson",
+    "year": 2006,
+    "genre": "Fantasy",
+    "isbn": "9780000000316",
+    "shelf_number": "FAN-06",
+    "description": "In a world blanketed in ash where the sun is dim and the despotic immortal Lord Ruler has reigned for a thousand years, a street urchin named Vin discovers she has the rare ability to burn metals for magical powers known as Allomancy. Recruited by the master thief Kelsier, who bears his own terrible scars from the Lord Ruler's mines, Vin joins a crew of skilled criminals plotting the impossible: a heist to overthrow the empire itself. Sanderson builds a meticulously logical magic system around swallowed metals and pairs it with a heist narrative that questions what a chosen one really owes the people she might save, and whether even the most oppressive order can be broken from below."
+  },
+  {
+    "id": "book_032",
+    "title": "The Girl on the Train",
+    "author": "Paula Hawkins",
+    "year": 2015,
+    "genre": "Thriller",
+    "isbn": "9780000000323",
+    "shelf_number": "THR-04",
+    "description": "Rachel Watson rides the same commuter train every day, past the house she used to share with her ex-husband and the new couple who now live a few doors down, whose lives she watches and imagines from her window seat. When the young wife Megan Hipwell disappears, Rachel realises she may have witnessed something crucial on the night in question, but her unreliable memory, alcoholism, and tangled connections to everyone involved make her both a key witness and a prime suspect. Told through the fractured, overlapping perspectives of three women, Hawkins's propulsive thriller interrogates memory, self-deception, and the danger of mistaking observation for understanding."
+  },
+  {
+    "id": "book_033",
+    "title": "The Da Vinci Code",
+    "author": "Dan Brown",
+    "year": 2003,
+    "genre": "Thriller",
+    "isbn": "9780000000330",
+    "shelf_number": "THR-05",
+    "description": "Harvard symbologist Robert Langdon is pulled into a murder investigation at the Louvre when the curator is found dead surrounded by a cryptic cipher, launching Langdon and cryptologist Sophie Neveu on a frantic chase across Europe. Following a trail of clues hidden in the work of Leonardo da Vinci, they uncover a centuries-old secret society and a conspiracy that threatens to upend church history, pursued by a shadowy organisation determined to protect the secret at any cost. Brown's fast-paced blend of art history, cryptography, and conspiracy theory turns cathedrals and paintings into puzzle boxes, driving a global phenomenon built on the thrill of decoding hidden meaning in plain sight."
+  },
+  {
+    "id": "book_034",
+    "title": "Thinking, Fast and Slow",
+    "author": "Daniel Kahneman",
+    "year": 2011,
+    "genre": "Non-Fiction",
+    "isbn": "9780000000347",
+    "shelf_number": "NF-06",
+    "description": "Nobel laureate Daniel Kahneman distils decades of research into human judgment into a single framework: the fast, intuitive, emotional System 1 and the slower, deliberate, logical System 2 that together govern how we think and decide. Drawing on his groundbreaking work with Amos Tversky, Kahneman catalogues the systematic biases and cognitive illusions, from anchoring and availability to overconfidence and loss aversion, that shape everyday judgments about risk, money, and other people, often without our awareness. The book reshaped economics and psychology alike by demonstrating that humans are not the rational actors classical theory assumed, and offers readers a practical vocabulary for recognising the predictable ways their own minds can mislead them."
+  },
+  {
+    "id": "book_035",
+    "title": "Beloved",
+    "author": "Toni Morrison",
+    "year": 1987,
+    "genre": "Literary Fiction",
+    "isbn": "9780000000354",
+    "shelf_number": "LIT-04",
+    "description": "Sethe, a formerly enslaved woman living in post-Civil War Ohio, is haunted, literally and figuratively, by the trauma of her escape from slavery and the unspeakable act she committed to protect her children from being taken back into bondage. When a mysterious young woman calling herself Beloved arrives at Sethe's house and insinuates herself into the family, the boundary between memory and haunting, past and present, begins to dissolve. Morrison's Pulitzer Prize-winning novel confronts the psychological and generational devastation of slavery with a fragmented, lyrical structure that forces readers to experience trauma the way memory actually works: nonlinear, intrusive, and impossible to fully bury."
   }
 ]

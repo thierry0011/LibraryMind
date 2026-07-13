@@ -1,3 +1,5 @@
+import threading
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -5,6 +7,7 @@ from app.infrastructure.usage_tracker import get_usage_tracker
 
 router = APIRouter()
 _request_count = 0
+_count_lock = threading.Lock()
 
 
 class HealthResponse(BaseModel):
@@ -20,7 +23,8 @@ def health():
     since the last restart.
     """
     global _request_count
-    _request_count += 1
+    with _count_lock:
+        _request_count += 1
     tracker = get_usage_tracker()
     return HealthResponse(
         status="ok",

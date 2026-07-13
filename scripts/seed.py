@@ -6,6 +6,7 @@ import math
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.services.embedding_service import EmbeddingsService
+from app.services.book_text import build_embedding_text
 from app.infrastructure.vector_store import VectorStore
 from logger import get_logger
 
@@ -18,15 +19,12 @@ def main():
 
     book_path = os.path.join(os.path.dirname(__file__), "..", "data", "books.json")
 
-    with open(book_path, "r") as f:
+    with open(book_path, "r", encoding="utf-8") as f:
         books = json.load(f)
 
     logger.info(f"Loaded {len(books)} books from catalogue")
 
-    texts = [
-        f"book title: {book['title']}, book author: {book['author']}, book description: {book['description']}"
-        for book in books
-    ]
+    texts = [build_embedding_text(book) for book in books]
 
     batch_size = 5
     all_embeddings = []
@@ -53,6 +51,8 @@ def main():
                 "author": book["author"],
                 "year": book["year"],
                 "genre": book["genre"],
+                "isbn": book["isbn"],
+                "shelf_number": book["shelf_number"],
             },
             document=book["description"],
         )

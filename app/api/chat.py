@@ -2,6 +2,11 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.services.chatbot_service import ChatbotService
+from app.exceptions import (
+    RateLimitExceededException,
+    AIProviderException,
+    InvalidAIResponseException,
+)
 
 router = APIRouter()
 _service = ChatbotService()
@@ -34,11 +39,12 @@ def chat(body: ChatRequest):
             conversation_id=body.conversation_id,
             message=body.message,
         )
-    except Exception as e:
-        msg = str(e)
-        if "rate limit" in msg.lower():
-            raise HTTPException(status_code=429, detail=msg)
-        raise HTTPException(status_code=503, detail=f"AI provider error: {msg}")
+    except RateLimitExceededException as e:
+        raise HTTPException(status_code=429, detail=str(e))
+    except InvalidAIResponseException as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except AIProviderException as e:
+        raise HTTPException(status_code=503, detail=f"AI provider error: {e}")
 
     return ChatResponse(
         reply=result["reply"],

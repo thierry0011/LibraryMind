@@ -6,7 +6,22 @@ from unittest.mock import MagicMock, patch
 from providers.resilient_ai_service import ResilientAIService
 from providers.openai_provider import OpenAIProvider
 from providers.anthropic_provider import AnthropicProvider
+from app.infrastructure.circuit_breaker import (
+    get_circuit_breaker,
+    reset_circuit_breakers,
+)
 from config import settings as cfg_settings
+
+
+@pytest.fixture(autouse=True)
+def _clean_circuit_breakers():
+    """The circuit breaker registry is a process-wide singleton by design
+    (see infrastructure/circuit_breaker.py) so every ResilientAIService
+    instance shares it — but that means it must be reset between tests,
+    or one test's provider failures would leak into the next test's."""
+    reset_circuit_breakers()
+    yield
+    reset_circuit_breakers()
 
 
 @pytest.fixture
@@ -119,3 +134,65 @@ class TestResilientAIServiceFallback:
         mock_fallback.generate.return_value = "string result"
         result = svc.generate("p", "s")
         assert isinstance(result, str)
+
+
+# ---------------------------------------------------------------------------
+# generate() — circuit breaker integration
+# ---------------------------------------------------------------------------
+
+
+class TestResilientAIServiceCircuitBreaker:
+    def test_open_breaker_skips_provider_without_calling_it(self, service_with_mocks):
+        svc, mock_primary, mock_fallback = service_with_mocks
+        breaker = get_circuit_breaker("openai")
+        for _ in range(cfg_settings.CIRCUIT_BREAKER_FAILURE_THRESHOLD):
+            breaker.record_failure()
+        mock_fallback.generate.return_value = "fallback response"
+
+        result = svc.generate("prompt", "system")
+
+        mock_primary.generate.assert_not_called()
+        assert result == "fallback response"
+
+    def test_repeated_failures_open_the_breaker(self, service_with_mocks):
+        svc, mock_primary, mock_fallback = service_with_mocks
+        mock_primary.generate.side_effect = Exception("down")
+        mock_fallback.generate.return_value = "ok"
+
+        for _ in range(cfg_settings.CIRCUIT_BREAKER_FAILURE_THRESHOLD):
+            svc.generate("prompt", "system")
+
+        assert get_circuit_breaker("openai").state == "open"
+
+    def test_success_keeps_breaker_closed(self, service_with_mocks):
+        svc, mock_primary, _ = service_with_mocks
+        mock_primary.generate.return_value = "ok"
+
+        svc.generate("prompt", "system")
+
+        assert get_circuit_breaker("openai").state == "closed"
+
+    def test_success_resets_a_previously_degraded_breaker(self, service_with_mocks):
+        svc, mock_primary, _ = service_with_mocks
+        breaker = get_circuit_breaker("openai")
+        breaker.record_failure()
+        mock_primary.generate.return_value = "ok"
+
+        svc.generate("prompt", "system")
+
+        assert breaker.state == "closed"
+
+    def test_both_providers_open_raises_without_calling_either(
+        self, service_with_mocks
+    ):
+        svc, mock_primary, mock_fallback = service_with_mocks
+        for name in ("openai", "anthropic"):
+            breaker = get_circuit_breaker(name)
+            for _ in range(cfg_settings.CIRCUIT_BREAKER_FAILURE_THRESHOLD):
+                breaker.record_failure()
+
+        with pytest.raises(RuntimeError, match="All providers failed"):
+            svc.generate("prompt", "system")
+
+        mock_primary.generate.assert_not_called()
+        mock_fallback.generate.assert_not_called()

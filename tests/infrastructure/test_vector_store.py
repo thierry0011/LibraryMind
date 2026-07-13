@@ -16,7 +16,7 @@ import pytest
 # Inject stub BEFORE the project import pulls in the real (broken) chromadb.
 sys.modules.setdefault("chromadb", MagicMock())
 
-from infrastructure.vector_store import VectorStore  # noqa: E402
+from infrastructure.vector_store import VectorStore, _DB_PATH  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -52,7 +52,7 @@ class TestVectorStoreInit:
 
     def test_persistent_client_receives_correct_path(self, store_setup) -> None:
         _, _, _, MockClient = store_setup
-        MockClient.assert_called_once_with(path="./books_chroma_db")
+        MockClient.assert_called_once_with(path=_DB_PATH)
 
     def test_get_or_create_collection_called_once(self, store_setup) -> None:
         _, _, mock_client, _ = store_setup
@@ -327,3 +327,62 @@ class TestSearchBooksResultMapping:
             "distances": [],
         }
         assert isinstance(vs.search_books([0.1]), list)
+
+
+# ---------------------------------------------------------------------------
+# get_all_books
+# ---------------------------------------------------------------------------
+
+
+class TestGetAllBooks:
+    def test_calls_collection_get(self, store_setup) -> None:
+        vs, mock_collection, _, _ = store_setup
+        mock_collection.get.return_value = {"ids": [], "documents": [], "metadatas": []}
+        vs.get_all_books()
+        mock_collection.get.assert_called_once()
+
+    def test_requests_metadatas_and_documents(self, store_setup) -> None:
+        vs, mock_collection, _, _ = store_setup
+        mock_collection.get.return_value = {"ids": [], "documents": [], "metadatas": []}
+        vs.get_all_books()
+        kwargs = mock_collection.get.call_args[1]
+        assert set(kwargs["include"]) == {"metadatas", "documents"}
+
+    def test_empty_collection_returns_empty_list(self, store_setup) -> None:
+        vs, mock_collection, _, _ = store_setup
+        mock_collection.get.return_value = {"ids": [], "documents": [], "metadatas": []}
+        assert vs.get_all_books() == []
+
+    def test_maps_id_document_metadata(self, store_setup) -> None:
+        vs, mock_collection, _, _ = store_setup
+        mock_collection.get.return_value = {
+            "ids": ["book-1"],
+            "documents": ["A great book."],
+            "metadatas": [{"title": "Dune", "author": "Frank Herbert", "year": 1965}],
+        }
+        books = vs.get_all_books()
+        assert books == [
+            {
+                "id": "book-1",
+                "document": "A great book.",
+                "metadata": {"title": "Dune", "author": "Frank Herbert", "year": 1965},
+            }
+        ]
+
+    def test_multiple_books_all_returned_in_order(self, store_setup) -> None:
+        vs, mock_collection, _, _ = store_setup
+        mock_collection.get.return_value = {
+            "ids": ["b1", "b2"],
+            "documents": ["doc1", "doc2"],
+            "metadatas": [{"title": "A"}, {"title": "B"}],
+        }
+        books = vs.get_all_books()
+        assert [b["id"] for b in books] == ["b1", "b2"]
+
+    def test_raises_vector_store_exception_on_failure(self, store_setup) -> None:
+        from app.exceptions import VectorStoreException
+
+        vs, mock_collection, _, _ = store_setup
+        mock_collection.get.side_effect = RuntimeError("boom")
+        with pytest.raises(VectorStoreException):
+            vs.get_all_books()

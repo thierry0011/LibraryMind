@@ -2,6 +2,11 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.services.summarisation_service import SummarizationService
+from app.exceptions import (
+    RateLimitExceededException,
+    AIProviderException,
+    InvalidAIResponseException,
+)
 
 router = APIRouter()
 _service = SummarizationService()
@@ -31,12 +36,11 @@ def summarise(body: SummariseRequest):
     """
     try:
         result = _service.summarize(body.reviews)
-    except ValueError as e:
+    except RateLimitExceededException as e:
+        raise HTTPException(status_code=429, detail=str(e))
+    except InvalidAIResponseException as e:
         raise HTTPException(status_code=422, detail=str(e))
-    except Exception as e:
-        msg = str(e)
-        if "rate limit" in msg.lower():
-            raise HTTPException(status_code=429, detail=msg)
-        raise HTTPException(status_code=503, detail=f"AI provider error: {msg}")
+    except AIProviderException as e:
+        raise HTTPException(status_code=503, detail=f"AI provider error: {e}")
 
     return SummariseResponse(**result)
