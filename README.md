@@ -10,15 +10,16 @@ A production-grade FastAPI backend that lets library patrons search the catalogu
 LibraryMind/
 ├── app/
 │   ├── api/            # FastAPI routers (one per domain)
-│   ├── services/       # Business logic (RAG, chatbot, classify, summarise)
-│   ├── providers/      # OpenAI + Claude with resilient fallback
-│   └── infrastructure/ # Cache, rate limiter, usage tracker, vector store
+│   ├── services/       # Business logic (RAG, chatbot, classify, summarise,
+│   │                   # query understanding: signals/planner/validator)
+│   ├── providers/      # OpenAI + Claude with resilient fallback + circuit breaker
+│   └── infrastructure/ # Cache, rate limiter, circuit breaker, usage tracker, vector store
 ├── data/
-│   └── books.json      # 25-book catalogue (5+ genres)
+│   └── books.json      # 35-book catalogue (6 genres, isbn + shelf_number per book)
 ├── scripts/
 │   ├── seed.py         # Populate ChromaDB from books.json
 │   └── smoke_test.py   # End-to-end validation script
-├── tests/              # pytest unit tests (388 tests)
+├── tests/              # pytest unit tests (526 tests)
 ├── config.py
 ├── logger.py           # structlog configuration (console + JSON file output)
 ├── main.py
@@ -73,6 +74,8 @@ cp .env.example .env
 | `REDIS_HOST` | | `localhost` | Redis hostname. |
 | `REDIS_PORT` | | `6379` | Redis port. |
 | `REDIS_TTL` | | `3600` | Cache time-to-live in seconds (1 hour default). |
+| `CIRCUIT_BREAKER_FAILURE_THRESHOLD` | | `3` | Consecutive failures before a provider's circuit breaker opens (skipped without a call until recovery). |
+| `CIRCUIT_BREAKER_RECOVERY_TIMEOUT` | | `30` | Seconds an open breaker waits before letting one trial request through. |
 
 ### 5. Seed the knowledge base
 
@@ -80,7 +83,7 @@ cp .env.example .env
 python scripts/seed.py
 ```
 
-This embeds all 25 books from `data/books.json` and stores them in ChromaDB.
+This embeds all 35 books from `data/books.json` and stores them in ChromaDB. Each book's embedding text is a rich, question-mirroring sentence built by `app/services/book_text.py` ("What genre is X? Who wrote X? Where can I find X?"), not just a raw title/author/description concatenation — this is what lets semantic search rank genre- and location-relevant results correctly.
 
 ### 6. Start the server
 
@@ -133,6 +136,8 @@ curl -X POST http://localhost:8000/search/books \
       "author": "Frank Herbert",
       "year": "1965",
       "genre": "Science Fiction",
+      "isbn": "9780000000019",
+      "shelf_number": "SF-01",
       "description": "Epic science fiction set on the desert planet Arrakis...",
       "similarity": 0.9102
     }
@@ -151,7 +156,7 @@ curl -X POST http://localhost:8000/search/ask \
 {
   "answer": "Based on our catalogue, The Martian by Andy Weir is an excellent choice...",
   "sources": [
-    { "title": "The Martian", "author": "Andy Weir", "similarity": 0.8912 }
+    { "title": "The Martian", "author": "Andy Weir", "year": "2011", "genre": "Science Fiction", "isbn": "9780000000026", "shelf_number": "SF-02", "similarity": 0.8912 }
   ],
   "cached": false
 }
@@ -167,13 +172,30 @@ curl -X POST http://localhost:8000/search/ask \
 {
   "answer": "We have several books published before 2000, including Dune, Foundation, and Pride and Prejudice...",
   "sources": [
-    { "title": "Dune", "author": "Frank Herbert", "similarity": 1.0 },
-    { "title": "Foundation", "author": "Isaac Asimov", "similarity": 1.0 }
+    { "title": "Dune", "author": "Frank Herbert", "year": "1965", "genre": "Science Fiction", "isbn": "9780000000019", "shelf_number": "SF-01", "similarity": 1.0 },
+    { "title": "Foundation", "author": "Isaac Asimov", "year": "1951", "genre": "Science Fiction", "isbn": "9780000000040", "shelf_number": "SF-04", "similarity": 1.0 }
   ],
   "cached": false
 }
 ```
 This bypasses semantic similarity entirely — the year range is parsed from the question and matched directly against each book's `year` metadata, so `similarity` is `1.0` for every result rather than a fuzzy embedding score.
+
+### RAG Q&A — compound question, spelled-out number, or another language
+```bash
+curl -X POST http://localhost:8000/search/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "do you have any non fiction books published after two thousand seven"}'
+```
+```json
+{
+  "answer": "Yes — Sapiens, Educated, The Immortal Life of Henrietta Lacks, Atomic Habits, and Thinking, Fast and Slow are all Non-Fiction books published after 2007.",
+  "sources": [
+    { "title": "Sapiens: A Brief History of Humankind", "author": "Yuval Noah Harari", "year": "2011", "genre": "Non-Fiction", "isbn": "9780000000149", "shelf_number": "NF-01", "similarity": 1.0 }
+  ],
+  "cached": false
+}
+```
+Neither "non fiction" (vs. the catalogue's "Non-Fiction") nor "two thousand seven" trips this up — see **Query Understanding Pipeline** below for how a compound, spelled-out-number, or non-English question like this gets resolved correctly instead of falling through to a plain keyword/refusal.
 
 ### Chat (turn 1)
 ```bash
@@ -184,7 +206,7 @@ curl -X POST http://localhost:8000/chat/ \
 ```json
 {
   "reply": "I'd recommend Gone Girl by Gillian Flynn — a psychological thriller with an unreliable narrator...",
-  "sources": [{ "title": "Gone Girl", "author": "Gillian Flynn", "similarity": 0.8541 }],
+  "sources": [{ "title": "Gone Girl", "author": "Gillian Flynn", "year": "2012", "genre": "Thriller", "isbn": "9780000000118", "shelf_number": "THR-02", "similarity": 0.8541 }],
   "conversation_id": "user-123"
 }
 ```
@@ -198,7 +220,7 @@ curl -X POST http://localhost:8000/chat/ \
 ```json
 {
   "reply": "Gone Girl, which I mentioned earlier, follows Nick and Amy Dunne whose marriage...",
-  "sources": [{ "title": "Gone Girl", "author": "Gillian Flynn", "similarity": 0.8541 }],
+  "sources": [{ "title": "Gone Girl", "author": "Gillian Flynn", "year": "2012", "genre": "Thriller", "isbn": "9780000000118", "shelf_number": "THR-02", "similarity": 0.8541 }],
   "conversation_id": "user-123"
 }
 ```
@@ -356,7 +378,7 @@ All logging goes through `structlog` (configured in `logger.py`), not the stdlib
 
 ## Running Tests
 
-### Unit tests (388 tests)
+### Unit tests (526 tests)
 ```bash
 pytest tests/ -v
 ```
@@ -376,18 +398,25 @@ python scripts/smoke_test.py http://localhost:8000
 Client → FastAPI (API Layer)
            ↓
        Service Layer
-       ├── RAGEngine          ← vector search + AI generation
+       ├── RAGEngine          ← query understanding + vector search + AI generation
        ├── ChatbotService     ← multi-turn memory + RAG
        ├── ClassificationService ← structured ticket analysis
        └── SummarizationService  ← review analysis
            ↓
+       Query Understanding (inside RAGEngine, see below)
+       ├── query_signals   ← hard-signal detection (non-English, comparative)
+       ├── metadata_filter ← regex/fuzzy year, genre, author extraction
+       ├── query_planner   ← AI structured extraction (cached, fallback-safe)
+       └── query_validator ← checks AI output against the real catalogue
+           ↓
        AI Provider Layer
-       └── ResilientAIService ← OpenAI → Claude fallback
+       └── ResilientAIService ← OpenAI → Claude fallback, per-provider circuit breaker
            ↓
        Infrastructure Layer
        ├── VectorStore (ChromaDB)
        ├── Cache (Redis, optional)
        ├── RateLimiter (token bucket)
+       ├── CircuitBreaker (per-provider, process-wide)
        └── UsageTracker (cost + tokens)
 ```
 
@@ -397,16 +426,74 @@ When a patron asks a question via `POST /search/ask`:
 
 1. **Cache check** — if this exact question was asked before, return the cached answer immediately from Redis
 2. **Rate limit** — acquire a token from the shared bucket; return HTTP 429 if exhausted
-3. **Route** — check whether the question is a structured query (a publication-year range/decade, or an enumeration phrase like "how many"/"list all"). If so, skip straight to step 6 using metadata filtering instead of embeddings; otherwise continue to step 4
-4. **Embed** — convert the question into a 512-dimensional vector via the AmaliAI embeddings endpoint
+3. **Route** — resolve the question via the Query Understanding Pipeline (below) into either a structured filter, a semantic search, or both
+4. **Embed** — convert the resolved search text into a 512-dimensional vector via the AmaliAI embeddings endpoint (skipped entirely for a purely structured match)
 5. **Search** — query ChromaDB for the top-K most similar book vectors using HNSW cosine search
-6. **Filter** — for semantic queries, discard books with cosine similarity below `RELEVANCE_THRESHOLD` (default 0.35); for structured queries, keep only books matching the parsed year/genre/author filter
+6. **Filter** — for semantic queries, discard books with cosine similarity below `RELEVANCE_THRESHOLD` (default 0.35); for structured queries, keep only books matching the resolved year/genre/author filter
 7. **Refusal check** — if no books pass the filter, return a polite refusal with no AI call (no hallucination)
 8. **Build prompt** — format the relevant books into a structured context block combined with the question
-9. **Generate** — send through ResilientAIService → tries primary provider, falls back if needed
+9. **Generate** — send through ResilientAIService → tries primary provider, falls back if needed (circuit breaker skips a provider already known to be down)
 10. **Track** — count tokens with tiktoken, estimate cost, record in UsageTracker
 11. **Cache** — store the answer and sources in Redis for future identical queries
-12. **Return** — `{ answer, sources: [{title, author, similarity}], cached: bool }`
+12. **Return** — `{ answer, sources: [{title, author, year, genre, isbn, shelf_number, similarity}], cached: bool }`
+
+### Query Understanding Pipeline
+
+Regex/substring matching alone can't reliably interpret everything a patron might type — "non fiction" vs. the catalogue's "Non-Fiction", "two thousand seven" instead of "2007", a question asked in Kinyarwanda or French, or "books similar to Atomic Habits but more philosophical." `RAGEngine._retrieve_relevant_books` runs these cheapest-first, escalating only when a cheaper stage genuinely can't handle what's being asked:
+
+```
+Question
+   │
+   ▼
+Hard-signal check (app/services/query_signals.py)
+non-English? (function-word overlap, no AI call)
+comparative phrasing? ("similar to", "books like", "in the style of")
+   │
+   ├─ Hard signal present ──────────────────────────────┐
+   │                                                     ▼
+   │                                       AI Query Planner (query_planner.py)
+   │                                       Grounded in the real catalogue's
+   │                                       genre list. Cached by question.
+   │                                       Any failure (bad JSON, provider
+   │                                       outage) → None, never raises.
+   │                                                     │
+   │                                                     ▼
+   │                                       Validator (query_validator.py)
+   │                                       Resolves genre/author against
+   │                                       real catalogue values only —
+   │                                       a hallucinated genre is dropped,
+   │                                       never guessed at or corrected.
+   │                                                     │
+   ├─ No hard signal ─────┐                              │
+   ▼                      │                              │
+Deterministic parsing     │                              │
+(metadata_filter.py):     │                              │
+year regex + fuzzy        │                              │
+genre/author match        │                              │
+   │                      │                              │
+   ▼                      │                              │
+Resolved? ──Yes──► Exact metadata filter (book_matches) ◄─┘ (if plan has a
+   │                                                         structured filter)
+   No, but a temporal cue is present
+   ("published", "year", ...) and the
+   year regex still can't parse it
+   (e.g. a spelled-out number)
+   │
+   └──────────────────────────────────────────────────────► AI Query Planner
+                                                              (same as above)
+
+Neither a structured filter nor a hard signal? → plain semantic search,
+using the planner's semantic_query/title if one was produced, else the
+raw question.
+```
+
+Two deliberate design choices keep this cheap in the common case:
+
+- **Formatting differences are fixed without AI.** `extract_known_term` tries an exact substring match first, then a conservative fuzzy match (stdlib `difflib`, normalized for spacing/hyphens) — this alone resolves "non fiction" → "Non-Fiction". True abbreviations like "sci-fi" fall outside that fuzzy match's cutoff on purpose (resolving an abbreviation needs real-world knowledge, not string similarity) and are left to the planner or to semantic search's natural tolerance for synonyms.
+- **The planner only runs when it has to.** A hard signal (non-English, comparative) always escalates; otherwise the existing regex/fuzzy pass runs first and only escalates if a temporal cue is present but genuinely unparseable. An ordinary English question — structured or not — never pays for an AI call beyond the final answer generation.
+- **The AI never gets the final word on structured fields.** The planner is grounded in the catalogue's actual genre list in its prompt, but `query_validator.validate_query_plan` is what decides what's actually used: a genre or author has to resolve to a real catalogue value (case-insensitively) or it's dropped, never fuzzy-corrected. A plan that resolves nothing usable degrades to plain semantic search on the raw question — the same graceful-fallback pattern already used everywhere else AI calls exist in this codebase.
+
+**Known limitation:** the "similar to X" case produces a rich `semantic_query` paraphrase of what X is about, which is then run through the *existing* embedding search — not a genuine "find nearest neighbours to X's own embedding" retrieval mode. That's a reasonable approximation but a real one, deliberately scoped out to avoid adding a new retrieval strategy on top of an already large change.
 
 ### Anti-Hallucination & Structured Query Routing
 
@@ -414,24 +501,33 @@ Two guarantees keep RAG and chatbot answers grounded in the catalogue rather tha
 
 **The model cannot supplement context with outside knowledge.** Both `RAGEngine`'s system prompt and `ChatbotService`'s conversational-wrap prompt explicitly forbid using training-data knowledge about real books or authors — even ones the model recognises — and require an explicit "not in our catalog" answer whenever a field is missing, empty, or not covered by the retrieved context. A plain "answer only from context" instruction isn't enough on its own: a model that already knows a book's real author from training will tend to "helpfully" fill a missing field rather than say it doesn't know, so both prompts say so explicitly.
 
-**Structured questions bypass semantic search entirely.** Dense vector similarity only works when a question resembles a book's *description* — it structurally cannot answer "what books came out before 2000?" or "how many fantasy books do you have?", since no description is semantically close to a date range or a count. `RAGEngine` runs a cheap, catalogue-independent check (`looks_like_metadata_query` in `app/services/metadata_filter.py`) before embedding anything; if the question mentions a year range/decade or an enumeration phrase, it filters the full catalogue's metadata (year, genre, author) directly instead of running a similarity search. Both retrieval paths converge on the same shape (`relevant_books`, `refusal_message`), so context-building, generation, caching, and usage tracking behave identically regardless of which path ran.
+**Structured questions bypass semantic search entirely.** Dense vector similarity only works when a question resembles a book's *description* — it structurally cannot answer "what books came out before 2000?" or "how many fantasy books do you have?", since no description is semantically close to a date range or a count. `RAGEngine` resolves the question via the Query Understanding Pipeline (above) before embedding anything; if it resolves to a year/genre/author filter — whether from the cheap regex/fuzzy pass or the AI planner — it filters the full catalogue's metadata directly instead of running a similarity search. Every retrieval path converges on the same shape (`relevant_books`, `refusal_message`), so context-building, generation, caching, and usage tracking behave identically regardless of which path ran.
 
 ### How Provider Fallback Works
 
 ```
-Request → OpenAIProvider.generate()
+Request → Circuit breaker check for OpenAI
            │
-           ├─ Attempt 1 fails (429/5xx/timeout) → wait 2s  (exponential backoff)
-           ├─ Attempt 2 fails                   → wait 4s
-           ├─ Attempt 3 fails                   → re-raise exception
+           ├─ Open (OpenAI failed repeatedly, recovery timeout not elapsed)
+           │  → skip straight to Anthropic, no wasted retry+backoff
            │
-           └─ ResilientAIService catches it, logs it
-              → AnthropicProvider.generate()
-                 ├─ Success → return response
-                 └─ Fails   → raise RuntimeError → API returns HTTP 503
+           └─ Closed/half-open → OpenAIProvider.generate()
+                 │
+                 ├─ Attempt 1 fails (429/5xx/timeout) → wait 2s  (exponential backoff)
+                 ├─ Attempt 2 fails                   → wait 4s
+                 ├─ Attempt 3 fails                   → re-raise exception
+                 │
+                 └─ ResilientAIService catches it, records the failure on
+                    OpenAI's circuit breaker, logs it
+                    → Circuit breaker check for Anthropic
+                       → AnthropicProvider.generate()
+                          ├─ Success → record success, return response
+                          └─ Fails   → raise AIProviderException → API returns HTTP 503
 ```
 
 Retry only triggers for **transient errors**: `429 Too Many Requests`, `5xx Server Errors`, network timeouts, and connection errors. Permanent errors (`401 Unauthorized`, `400 Bad Request`) propagate immediately without retrying — retrying a bad API key or a malformed request won't help.
+
+**Circuit breaker is process-wide, per provider — not per service.** Like `RateLimiter`, `get_circuit_breaker(provider_name)` in `app/infrastructure/circuit_breaker.py` is a singleton shared by every `ResilientAIService` instance (`RAGEngine`, `ChatbotService`, `ClassificationService`, `SummarisationService` each construct their own instance). If OpenAI starts failing under RAG traffic, the chatbot's and classifier's calls see the open breaker too and skip straight to Anthropic — they don't have to independently rediscover the outage. After `CIRCUIT_BREAKER_FAILURE_THRESHOLD` consecutive failures the breaker opens; after `CIRCUIT_BREAKER_RECOVERY_TIMEOUT` seconds it lets exactly one trial request through (half-open) before deciding to close again or reopen.
 
 ---
 

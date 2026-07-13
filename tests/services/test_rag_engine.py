@@ -143,6 +143,23 @@ class TestRAGEngineAskFullFlow:
         assert result["sources"][0]["title"] == "Dune"
         assert result["sources"][0]["author"] == "Frank Herbert"
 
+    def test_sources_include_year_genre_isbn_shelf_number(self, rag):
+        rag.cache.get.return_value = None
+        rag.embedding_service.embed.return_value = [0.1]
+        book = _make_book(similarity=0.85)
+        book["metadata"]["isbn"] = "9781234567897"
+        book["metadata"]["shelf_number"] = "SF-01"
+        rag.vector_store.search_books.return_value = [book]
+        rag.provider.generate.return_value = "Answer."
+
+        result = rag.ask("What is Dune about?")
+
+        source = result["sources"][0]
+        assert source["year"] == "1965"
+        assert source["genre"] == "Sci-Fi"
+        assert source["isbn"] == "9781234567897"
+        assert source["shelf_number"] == "SF-01"
+
     def test_cached_flag_is_false_on_fresh_response(self, rag):
         rag.cache.get.return_value = None
         rag.embedding_service.embed.return_value = [0.1]
@@ -528,16 +545,62 @@ class TestRAGEngineMetadataFilterRouting:
         titles = [s["title"] for s in result["sources"]]
         assert set(titles) == {"Dune", "The Martian"}
 
+    def test_bare_genre_mention_skips_embedding_call(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+        rag.provider.generate.return_value = "Here are our Science Fiction books."
+
+        rag.ask("What books do you have in the genre Science Fiction?")
+
+        rag.embedding_service.embed.assert_not_called()
+        rag.vector_store.search_books.assert_not_called()
+
+    def test_bare_genre_mention_returns_only_matching_genre(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+        rag.provider.generate.return_value = "Here are our Science Fiction books."
+
+        result = rag.ask("What books do you have in the genre Science Fiction?")
+
+        titles = {s["title"] for s in result["sources"]}
+        assert titles == {"Dune", "The Martian"}
+
+    def test_bare_author_mention_routes_to_metadata_filter(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+        rag.provider.generate.return_value = "Frank Herbert wrote Dune."
+
+        result = rag.ask("What has Frank Herbert written?")
+
+        titles = [s["title"] for s in result["sources"]]
+        assert titles == ["Dune"]
+
     def test_normal_question_still_uses_semantic_search(self, rag):
         rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = []
         rag.embedding_service.embed.return_value = [0.1]
         rag.vector_store.search_books.return_value = [_make_book(similarity=0.9)]
         rag.provider.generate.return_value = "Dune is great."
 
         rag.ask("What is Dune about?")
 
-        rag.vector_store.get_all_books.assert_not_called()
         rag.vector_store.search_books.assert_called_once()
+
+    def test_normal_question_does_not_refetch_catalogue_after_first_call(self, rag):
+        """The genre/author lookup needed to recognise bare mentions like
+        "classic fiction" warms a cache from get_all_books() on first use,
+        but must not re-fetch the whole catalogue on every later question."""
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = []
+        rag.embedding_service.embed.return_value = [0.1]
+        rag.vector_store.search_books.return_value = [_make_book(similarity=0.9)]
+        rag.provider.generate.return_value = "Dune is great."
+
+        rag.ask("What is Dune about?")
+        rag.vector_store.get_all_books.reset_mock()
+        rag.ask("What is Foundation about?")
+
+        rag.vector_store.get_all_books.assert_not_called()
 
     def test_year_filter_response_is_cached(self, rag):
         rag.cache.get.return_value = None
@@ -556,6 +619,156 @@ class TestRAGEngineMetadataFilterRouting:
             rag.ask("What books came out before the year 2000?")
 
         rag.rate_limiter.release.assert_called_once()
+
+
+class TestRAGEngineQueryPlannerRouting:
+    """
+    Non-English questions, "similar to X" comparisons, and temporal claims
+    the year regex can't parse (spelled-out numbers) all need the AI query
+    planner instead of — or in addition to — the deterministic regex/
+    substring parsing above. The planner's validated output, when it
+    resolves a structured filter, is used exactly like a deterministic
+    filter match; when it only resolves a semantic_query/title, that text
+    replaces the raw question for the embedding search.
+    """
+
+    def _catalogue(self):
+        return [
+            {
+                "id": "book_001",
+                "document": "Desert planet epic.",
+                "metadata": {
+                    "title": "Dune",
+                    "author": "Frank Herbert",
+                    "year": 1965,
+                    "genre": "Science Fiction",
+                },
+            },
+            {
+                "id": "book_002",
+                "document": "Mars survival story.",
+                "metadata": {
+                    "title": "The Martian",
+                    "author": "Andy Weir",
+                    "year": 2011,
+                    "genre": "Science Fiction",
+                },
+            },
+        ]
+
+    def test_non_english_question_triggers_planner_not_deterministic_path(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+        rag.provider.generate.side_effect = [
+            '{"title": "Dune", "genre": null, "author": null, '
+            '"year_filter": null, "semantic_query": null}',
+            "Yes, we have Dune.",
+        ]
+        rag.embedding_service.embed.return_value = [0.1]
+        rag.vector_store.search_books.return_value = []
+
+        rag.ask("Mbwira niba mufite igitabo kitwa Dune")
+
+        # The planner's validated title should drive the semantic search,
+        # not the raw (non-English) question text.
+        embed_call_arg = rag.embedding_service.embed.call_args.args[0]
+        assert embed_call_arg == "Dune"
+
+    def test_comparative_question_triggers_planner(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+        rag.provider.generate.side_effect = [
+            '{"title": null, "genre": null, "author": null, "year_filter": null, '
+            '"semantic_query": "books about habit formation and behavior change"}',
+            "Here are some suggestions.",
+        ]
+        rag.embedding_service.embed.return_value = [0.1]
+        rag.vector_store.search_books.return_value = []
+
+        rag.ask("books similar to Atomic Habits but more philosophical")
+
+        embed_call_arg = rag.embedding_service.embed.call_args.args[0]
+        assert embed_call_arg == "books about habit formation and behavior change"
+
+    def test_spelled_out_year_triggers_planner(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+        rag.provider.generate.side_effect = [
+            '{"title": null, "genre": null, "author": null, '
+            '"year_filter": {"operator": ">", "value": 2007}, "semantic_query": null}',
+            "Here are books after 2007.",
+        ]
+
+        result = rag.ask("books published after two thousand seven")
+
+        titles = [s["title"] for s in result["sources"]]
+        assert titles == ["The Martian"]
+
+    def test_planner_structured_filter_skips_embedding_call(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+        rag.provider.generate.side_effect = [
+            '{"title": null, "genre": "Science Fiction", "author": null, '
+            '"year_filter": null, "semantic_query": null}',
+            "Here are our Science Fiction books.",
+        ]
+
+        rag.ask("Mbwira niba mufite ibitabo bya siyansi bivuga")
+
+        rag.embedding_service.embed.assert_not_called()
+
+    def test_ordinary_year_question_does_not_trigger_planner(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+        rag.provider.generate.return_value = "Only Dune is before 2000."
+
+        rag.ask("What books came out before the year 2000?")
+
+        # Only one generate() call — the final answer. No planner call.
+        assert rag.provider.generate.call_count == 1
+
+    def test_ordinary_english_question_does_not_trigger_planner(self, rag):
+        rag.cache.get.return_value = None
+        rag.embedding_service.embed.return_value = [0.1]
+        rag.vector_store.search_books.return_value = [_make_book(similarity=0.9)]
+        rag.provider.generate.return_value = "Some answer."
+
+        rag.ask("what is Dune about?")
+
+        assert rag.provider.generate.call_count == 1
+
+    def test_planner_failure_falls_back_to_plain_semantic_search(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+        rag.provider.generate.side_effect = [
+            Exception("all providers failed"),
+            "Fallback answer.",
+        ]
+        rag.embedding_service.embed.return_value = [0.1]
+        rag.vector_store.search_books.return_value = []
+
+        rag.ask("Mbwira niba mufite igitabo kitwa Dune")
+
+        # Falls back to embedding the raw question when the planner itself
+        # fails outright (not just resolves nothing).
+        embed_call_arg = rag.embedding_service.embed.call_args.args[0]
+        assert embed_call_arg == "Mbwira niba mufite igitabo kitwa Dune"
+
+    def test_planner_resolving_nothing_falls_back_to_raw_question_embedding(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+        rag.provider.generate.side_effect = [
+            '{"title": null, "genre": null, "author": null, '
+            '"year_filter": null, "semantic_query": null}',
+            "Fallback answer.",
+        ]
+        rag.embedding_service.embed.return_value = [0.1]
+        rag.vector_store.search_books.return_value = []
+
+        rag.ask("Mbwira niba mufite igitabo kitwa Dune")
+
+        embed_call_arg = rag.embedding_service.embed.call_args.args[0]
+        assert embed_call_arg == "Mbwira niba mufite igitabo kitwa Dune"
 
 
 class TestRAGEngineAskReturnsBooks:

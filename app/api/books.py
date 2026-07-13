@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.services.embedding_service import EmbeddingsService
+from app.services.book_text import build_embedding_text
 from app.infrastructure.vector_store import VectorStore
 from app.exceptions import (
     EmbeddingException,
@@ -21,6 +22,8 @@ class BookIngestRequest(BaseModel):
     author: str = Field(..., min_length=1, max_length=200)
     year: str | None = None
     genre: str | None = None
+    isbn: str | None = None
+    shelf_number: str | None = None
     description: str = Field(..., min_length=1, max_length=5000)
 
 
@@ -43,12 +46,24 @@ def ingest_book(body: BookIngestRequest):
     """
     try:
         book_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{body.title}:{body.author}"))
-        embedding = _embedding_service.embed(body.description)
+        embedding_text = build_embedding_text(
+            {
+                "title": body.title,
+                "author": body.author,
+                "year": body.year,
+                "genre": body.genre,
+                "shelf_number": body.shelf_number,
+                "description": body.description,
+            }
+        )
+        embedding = _embedding_service.embed(embedding_text)
         metadata = {
             "title": body.title,
             "author": body.author,
             "year": body.year or "",
             "genre": body.genre or "",
+            "isbn": body.isbn or "",
+            "shelf_number": body.shelf_number or "",
         }
         _vector_store.upsert_books(
             id=book_id,

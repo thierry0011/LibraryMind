@@ -68,6 +68,9 @@ instance/
 # Scrapy stuff:
 .scrapy
 
+#my secret commands
+COMMANDS.md
+
 # Sphinx documentation
 docs/_build/
 
@@ -222,3 +225,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local command notes
+COMMANDS.md
