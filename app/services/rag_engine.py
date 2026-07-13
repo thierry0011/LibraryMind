@@ -7,6 +7,7 @@ from app.services.metadata_filter import (
     book_matches,
     build_filter_spec,
     describe_no_match,
+    extract_known_term,
     looks_like_metadata_query,
     looks_like_vague_followup,
 )
@@ -47,6 +48,30 @@ class RAGEngine:
         self.relevance_threshold = settings.RELEVANCE_THRESHOLD
         self.rag_top_k = settings.RAG_TOP_K
         self._tokenizer = tiktoken.get_encoding("cl100k_base")
+        self._known_terms_cache: tuple[set, set] | None = None
+
+    def _known_genres_and_authors(self) -> tuple[set, set]:
+        """Cached genre/author values actually in the catalogue, so a bare
+        mention ("classic fiction", "Frank Herbert") can be recognised as a
+        structured query without fetching the whole catalogue on every
+        request. Computed once per process from get_all_books() (a local
+        ChromaDB read) and reused after that — a book ingested under a brand
+        new genre/author won't be picked up by this check until the process
+        restarts, which is an acceptable tradeoff at this catalogue size."""
+        if self._known_terms_cache is None:
+            all_books = self.vector_store.get_all_books()
+            known_genres = {
+                b["metadata"].get("genre")
+                for b in all_books
+                if b["metadata"].get("genre")
+            }
+            known_authors = {
+                b["metadata"].get("author")
+                for b in all_books
+                if b["metadata"].get("author")
+            }
+            self._known_terms_cache = (known_genres, known_authors)
+        return self._known_terms_cache
 
     def _build_context(self, books: list) -> str:
         entries = []
@@ -57,6 +82,8 @@ class RAGEngine:
                 f"    Author: {meta.get('author', 'Unknown')}\n"
                 f"    Year: {meta.get('year', 'N/A')}\n"
                 f"    Genre: {meta.get('genre', 'N/A')}\n"
+                f"    ISBN: {meta.get('isbn', 'N/A')}\n"
+                f"    Shelf: {meta.get('shelf_number', 'N/A')}\n"
                 f"    Description: {book['document']}"
             )
         return "\n\n".join(entries)
@@ -91,7 +118,11 @@ class RAGEngine:
         fall back to whatever books were relevant on the previous turn —
         the patron is almost certainly still asking about those.
         """
-        if looks_like_metadata_query(question):
+        known_genres, known_authors = self._known_genres_and_authors()
+        mentions_genre = extract_known_term(question, known_genres) is not None
+        mentions_author = extract_known_term(question, known_authors) is not None
+
+        if looks_like_metadata_query(question) or mentions_genre or mentions_author:
             all_books = self.vector_store.get_all_books()
             filters = build_filter_spec(question, all_books)
             relevant = [
@@ -187,6 +218,10 @@ class RAGEngine:
             {
                 "title": b["metadata"].get("title"),
                 "author": b["metadata"].get("author"),
+                "year": str(b["metadata"]["year"]) if b["metadata"].get("year") else None,
+                "genre": b["metadata"].get("genre"),
+                "isbn": b["metadata"].get("isbn"),
+                "shelf_number": b["metadata"].get("shelf_number"),
                 "similarity": round(b["similarity"], 4),
             }
             for b in relevant

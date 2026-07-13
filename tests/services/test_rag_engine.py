@@ -143,6 +143,23 @@ class TestRAGEngineAskFullFlow:
         assert result["sources"][0]["title"] == "Dune"
         assert result["sources"][0]["author"] == "Frank Herbert"
 
+    def test_sources_include_year_genre_isbn_shelf_number(self, rag):
+        rag.cache.get.return_value = None
+        rag.embedding_service.embed.return_value = [0.1]
+        book = _make_book(similarity=0.85)
+        book["metadata"]["isbn"] = "9781234567897"
+        book["metadata"]["shelf_number"] = "SF-01"
+        rag.vector_store.search_books.return_value = [book]
+        rag.provider.generate.return_value = "Answer."
+
+        result = rag.ask("What is Dune about?")
+
+        source = result["sources"][0]
+        assert source["year"] == "1965"
+        assert source["genre"] == "Sci-Fi"
+        assert source["isbn"] == "9781234567897"
+        assert source["shelf_number"] == "SF-01"
+
     def test_cached_flag_is_false_on_fresh_response(self, rag):
         rag.cache.get.return_value = None
         rag.embedding_service.embed.return_value = [0.1]
@@ -528,16 +545,62 @@ class TestRAGEngineMetadataFilterRouting:
         titles = [s["title"] for s in result["sources"]]
         assert set(titles) == {"Dune", "The Martian"}
 
+    def test_bare_genre_mention_skips_embedding_call(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+        rag.provider.generate.return_value = "Here are our Science Fiction books."
+
+        rag.ask("What books do you have in the genre Science Fiction?")
+
+        rag.embedding_service.embed.assert_not_called()
+        rag.vector_store.search_books.assert_not_called()
+
+    def test_bare_genre_mention_returns_only_matching_genre(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+        rag.provider.generate.return_value = "Here are our Science Fiction books."
+
+        result = rag.ask("What books do you have in the genre Science Fiction?")
+
+        titles = {s["title"] for s in result["sources"]}
+        assert titles == {"Dune", "The Martian"}
+
+    def test_bare_author_mention_routes_to_metadata_filter(self, rag):
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = self._catalogue()
+        rag.provider.generate.return_value = "Frank Herbert wrote Dune."
+
+        result = rag.ask("What has Frank Herbert written?")
+
+        titles = [s["title"] for s in result["sources"]]
+        assert titles == ["Dune"]
+
     def test_normal_question_still_uses_semantic_search(self, rag):
         rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = []
         rag.embedding_service.embed.return_value = [0.1]
         rag.vector_store.search_books.return_value = [_make_book(similarity=0.9)]
         rag.provider.generate.return_value = "Dune is great."
 
         rag.ask("What is Dune about?")
 
-        rag.vector_store.get_all_books.assert_not_called()
         rag.vector_store.search_books.assert_called_once()
+
+    def test_normal_question_does_not_refetch_catalogue_after_first_call(self, rag):
+        """The genre/author lookup needed to recognise bare mentions like
+        "classic fiction" warms a cache from get_all_books() on first use,
+        but must not re-fetch the whole catalogue on every later question."""
+        rag.cache.get.return_value = None
+        rag.vector_store.get_all_books.return_value = []
+        rag.embedding_service.embed.return_value = [0.1]
+        rag.vector_store.search_books.return_value = [_make_book(similarity=0.9)]
+        rag.provider.generate.return_value = "Dune is great."
+
+        rag.ask("What is Dune about?")
+        rag.vector_store.get_all_books.reset_mock()
+        rag.ask("What is Foundation about?")
+
+        rag.vector_store.get_all_books.assert_not_called()
 
     def test_year_filter_response_is_cached(self, rag):
         rag.cache.get.return_value = None

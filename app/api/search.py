@@ -29,6 +29,8 @@ class BookResult(BaseModel):
     author: str
     year: str | None = None
     genre: str | None = None
+    isbn: str | None = None
+    shelf_number: str | None = None
     description: str
     similarity: float
 
@@ -59,6 +61,10 @@ def search_books(body: SearchRequest):
             author=b["metadata"].get("author", "Unknown"),
             year=str(b["metadata"]["year"]) if b["metadata"].get("year") else None,
             genre=str(b["metadata"]["genre"]) if b["metadata"].get("genre") else None,
+            isbn=str(b["metadata"]["isbn"]) if b["metadata"].get("isbn") else None,
+            shelf_number=str(b["metadata"]["shelf_number"])
+            if b["metadata"].get("shelf_number")
+            else None,
             description=b["document"],
             similarity=round(b["similarity"], 4),
         )
@@ -74,6 +80,10 @@ class AskRequest(BaseModel):
 class SourceBook(BaseModel):
     title: str | None = None
     author: str | None = None
+    year: str | None = None
+    genre: str | None = None
+    isbn: str | None = None
+    shelf_number: str | None = None
     similarity: float
 
 
